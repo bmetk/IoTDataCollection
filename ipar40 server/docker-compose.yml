@@ -1,0 +1,49 @@
+version: '3.6'
+services:
+  mosquitto:
+    #image: eclipse-mosquitto:2.0.15
+    build: ./mitstack/mosquitto
+    container_name: mosquitto
+    restart: always
+    environment:
+      - MQTT_USERNAME=bmetk
+      - MQTT_PASSWORD=iot23
+    volumes:
+      - ./mitstack/mosquitto/conf/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mitstack/mosquitto/conf/passwordfile.txt:/mosquitto/config/passwordfile.txt
+      - ./mitstack/mosquitto/data/:/mosquitto/data/
+      - ./mitstack/mosquitto/log/:/mosquitto/log/
+    ports:
+      - 1883:1883
+
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: influxdb
+    restart: always
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=password
+      - DOCKER_INFLUXDB_INIT_ORG=bmetk 
+      - DOCKER_INFLUXDB_INIT_BUCKET=laboratory 
+      - DOCKER_INFLUXDB_INIT_RETENTION=7d
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=6f9bcc542b6fb949ddd4354beea4a4ca75645531cf6f409469bb3bcd11fee168
+    volumes:
+      - ./mitstack/influxdb_storage:/var/lib/influxdb2:rw
+    ports:
+      - 8086:8086
+
+  telegraf:
+    image: telegraf:1.26-alpine
+    container_name: telegraf
+    restart: always
+    volumes:
+      - ./mitstack/telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    environment:
+      - INFLUX_TOKEN_OPENDAQ=
+      - INFLUX_TOKEN_LAB=
+    depends_on:
+      - influxdb
+      - mosquitto
+    ports:
+     - 8125:8125
