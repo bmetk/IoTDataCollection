@@ -1,0 +1,10 @@
+influxdb-client
+asyncio
+aiomqtt
+aiohttp
+numpy
+scipy
+
+aiocsv
+websockets
+websockets-routes

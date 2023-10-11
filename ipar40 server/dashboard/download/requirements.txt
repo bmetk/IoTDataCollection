@@ -1,0 +1,6 @@
+flask
+pandas
+influxdb-client
+aiohttp
+asyncio
+aiocsv

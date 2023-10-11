@@ -3,38 +3,51 @@ import random
 import time
 import json
 
-broker_address = "localhost"
-broker_port = 1883
-topic1 = "bmetk/mark/lathe/temperature/mlx90614/tempC"
-topic2 = "bmetk/peti/lathe/speed/opto/rpm"
-topic3 = "bmetk/markk/lathe/vibration/mpu9250/vibX"
-topic4 = "bmetk/esp2/jsondemo"
+broker_address = "152.66.34.82" #"152.66.34.82" #172.22.101.1"
+broker_port = 61111 #61111 #1883
+topic1 = "bmetk/markk/lathe/temperature/mlx90614/tempC"
+topic2 = "bmetk/markk/lathe/speed/opto/rpm"
+topic3 = "bmetk/markk/lathe/current/diy/cur"
+topic4 = "bmetk/markk/lathe/vibration/mpu9250/vibX"
+topic5 = "bmetk/markk/lathe/vibration/mpu9250/vibY"
+topic6 = "bmetk/markk/lathe/vibration/mpu9250/vibZ"
 
 
 client_id = f"python-mqtt-{random.randint(0, 1000)}"
-client = mqtt.Client(client_id=client_id)
+client = mqtt.Client(client_id="pathon-mqtt-001")
 client.username_pw_set("bmetk", "iot23")
 client.connect(broker_address, broker_port)
 
 client.loop_start()
 
+
+def magnitude():
+    mag = [str(round(random.uniform(0, 100), 2)) for _ in range(1024)]
+    result = "[" + ', '.join(mag) + "]"
+
+    return result
+
+
 while True:
 
     
-    data = {}
-    magnitude = []
+    magnitude_data = {}
+    current_data = {}
+    current = []
+    current = [str(random.randint(0, 10)) for _ in range(3)]
+    
+    current = "[" + ', '.join(current) + "]"
 
-    magnitude = [round(random.uniform(0, 100), 2) for _ in range(1024)]
+    rpm = random.randint(0, 2500)
+    tempC = random.randint(22, 70)
+    
+    client.publish(topic1, tempC)
+    client.publish(topic2, rpm)
+    client.publish(topic3, current)
+    client.publish(topic4, magnitude())
+    client.publish(topic5, magnitude())
+    client.publish(topic6, magnitude())
 
-    data["magnitude"] = magnitude
+    print("payloads sent")
 
-
-    json_data = json.dumps(data)
-    #print(json_data)
-
-
-    random_int = random.randint(0, 100)
-    client.publish(topic1, random_int)
-    client.publish(topic2, random_int+100)
-    client.publish(topic3, json_data)
-    time.sleep(5)
+    time.sleep(2)

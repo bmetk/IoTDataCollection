@@ -5,9 +5,7 @@ services:
     build: ./mitstack/mosquitto
     container_name: mosquitto
     restart: always
-    environment:
-      - MQTT_USERNAME=bmetk
-      - MQTT_PASSWORD=iot23
+    env_file: .env
     volumes:
       - ./mitstack/mosquitto/conf/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - ./mitstack/mosquitto/conf/passwordfile.txt:/mosquitto/config/passwordfile.txt
@@ -25,7 +23,7 @@ services:
       - DOCKER_INFLUXDB_INIT_USERNAME=admin
       - DOCKER_INFLUXDB_INIT_PASSWORD=password
       - DOCKER_INFLUXDB_INIT_ORG=bmetk 
-      - DOCKER_INFLUXDB_INIT_BUCKET=laboratory 
+      - DOCKER_INFLUXDB_INIT_BUCKET=opendaq 
       - DOCKER_INFLUXDB_INIT_RETENTION=7d
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=6f9bcc542b6fb949ddd4354beea4a4ca75645531cf6f409469bb3bcd11fee168
     volumes:
@@ -39,11 +37,39 @@ services:
     restart: always
     volumes:
       - ./mitstack/telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
-    environment:
-      - INFLUX_TOKEN_OPENDAQ=
-      - INFLUX_TOKEN_LAB=
+    env_file: .env
     depends_on:
       - influxdb
       - mosquitto
     ports:
      - 8125:8125
+
+
+
+  analytics_backend:
+    build: ./analytics_backend
+    container_name: analytics_backend
+    env_file: .env
+    restart: always
+    ports:
+      - 8765:8765
+      - 8766:8766
+
+  frontend:
+    build: ./dashboard/frontend
+    container_name: frontend
+    restart: always
+    depends_on:
+      - analytics_backend
+    ports:
+      - 8050:8050
+
+  download:
+    build: ./dashboard/download
+    container_name: download
+    restart: always
+    env_file: .env
+    depends_on:
+      - frontend
+    ports:
+      - 5000:5000
