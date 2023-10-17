@@ -9,8 +9,8 @@ bool checkMqttCon();
 bool checkWifiCon();
 void clientLoop();
 void sendMqttMessage(char* topic, const char* msg);
-void sendSerialMessage(int16_t msg);
-int16_t checkSerialMessage();
-
+void sendSerialMessage(u_char msg);
+u_char checkSerialMessage();
+void clearSerialInterconn();
 
 #endif

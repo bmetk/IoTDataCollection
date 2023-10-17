@@ -11,14 +11,17 @@
 
 // Optocoupler
 #define OPTO_PIN 36
+#define HOLE_COUNT 6 // number of holes on the disk
 // Current meter
 #define PHASE1_PIN 32
 #define PHASE2_PIN 33
 #define PHASE3_PIN 35
 #define OFFSET_PIN 34
 
-
 Adafruit_MLX90614 mlx = Adafruit_MLX90614();
+
+unsigned long currentTime = 0;
+unsigned long previousTime = 0;
 
 
 // measurement variables
@@ -51,7 +54,7 @@ void setupSensors() {
         while(retry < 10) {
             if (!mlx.begin()) {
                 retry++;
-                delay(250);
+                delay(200);
             }
             else
                 break;
@@ -60,6 +63,18 @@ void setupSensors() {
         if(retry >= 10) {
             // set the menu correspondingly
         }
+    }
+
+    previousTime = millis();
+}
+
+bool checkTempSensor() {
+    if(mlx.readAmbientTempC() != NAN) {
+        return true;
+    }
+    else {
+        mlx.begin();
+        return false;
     }
 }
 
@@ -88,13 +103,18 @@ void getCurrent(){
 
 // RPM measurement
 void getRpm() {
-    rpm = holes*5; // holes/6*30
+    currentTime = millis();
+    rpm = (holes/HOLE_COUNT) * 60 / ((currentTime-previousTime)/1000.0);
     holes = 0;
+    previousTime = currentTime;
     sendMqttMessage(RPM_TOPIC, String(rpm).c_str());
 }
 
 // Temperature measurement
 void getTempC() {
-    sendMqttMessage(TEMP_TOPIC, String(mlx.readObjectTempC()).c_str());
+    double tempC = mlx.readObjectTempC();
+    if(tempC != NAN) {
+        sendMqttMessage(TEMP_TOPIC, String(tempC).c_str());
+    }
 }
 

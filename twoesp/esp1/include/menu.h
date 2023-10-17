@@ -12,8 +12,11 @@ void errorTab(/*bool nextPage = false*/);
 void settingsTab();
 void drawCursor(int idx);
 bool isCollectionEnabled();
-void processSerial(int16_t msg);
-
+void processSerial(u_char msg);
+bool checkSendMeasurements();
+void resetSendMeasurements();
+String checkEsp2State();
+void setErrorEnable(int index, int value);
 
 void firstLevel();
 

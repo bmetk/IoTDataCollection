@@ -6,7 +6,7 @@
     void getCurrent();
     void getRpm();
     void getTempC();
-
+    bool checkTempSensor();
 
 
 

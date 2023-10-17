@@ -50,7 +50,7 @@ unsigned long buttonTime = 0;
 unsigned long lastButtonTime = 0;
 const int debounceInteval = 250; // 250ms for button debouncing
 unsigned long previousMillis;
-const unsigned int measurementInterval = 2000;
+const unsigned int measurementInterval = 1300;
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -58,6 +58,38 @@ const unsigned int measurementInterval = 2000;
 //
 ////////////////////////////////////////////////////////////////////////////////////////
 
+
+//-----------------------
+// Checking ESP1's health
+//-----------------------
+bool prevMqtt = false, prevWifi = false, prevTemp = false; 
+bool mqtt = false, wifi = false, temp = false; 
+void checkEsp1Health() {
+  mqtt = checkMqttCon();
+  wifi = checkWifiCon();
+  //temp = checkTempSensor();
+
+  if(mqtt && wifi){
+    setErrorEnable(0, 0);
+    
+  }
+  else {
+    setErrorEnable(0, 1);
+  }
+  /*if(temp){
+    setErrorEnable(3, 0);
+  }
+  else {
+    setErrorEnable(3, 1);
+  }*/
+  if (prevMqtt != mqtt || prevWifi != wifi /*|| prevTemp != temp*/){
+    prevMqtt = mqtt;
+    prevWifi = wifi;
+    //prevTemp = temp;
+
+    firstLevel();
+  }
+}
 
 //------------------------
 // Handling button presses
@@ -84,6 +116,9 @@ void IRAM_ATTR enterOnPress() {
 //----------------------------------------------
 void Task1code(void * pvParameters){
   for(;;){
+    // checking main ESP's health
+    checkEsp1Health();
+
     if(nextPressed) {
       updateState("next");
       nextPressed = false;
@@ -94,8 +129,8 @@ void Task1code(void * pvParameters){
       enterPressed = false;
       Serial.println("enter");
     }
-    //clientLoop();
-    processSerial(checkSerialMessage());
+    
+
     
     vTaskDelay(10);
   }
@@ -112,10 +147,23 @@ void Task2code(void * pvParameters){
     clientLoop();
   }
   previousMillis = millis();
+  clearSerialInterconn();
+  sendSerialMessage(0x01);
   
   for(;;){
+    //clientLoop();
+    processSerial(checkSerialMessage());
 
-    if(millis() - previousMillis > measurementInterval && isCollectionEnabled()){
+    if(checkSendMeasurements()) { // check if acceleration data is ready
+      resetSendMeasurements(); // reseting the flag
+      getCurrent();
+      getRpm();
+      //getTempC();
+      Serial.println("task2 done");
+      //previousMillis = millis();
+    }
+    else if(millis() - previousMillis > measurementInterval && isCollectionEnabled() && checkEsp2State() == "OFF") { // check if acceleration data is ready
+      resetSendMeasurements(); // reseting the flag
       getCurrent();
       getRpm();
       //getTempC();
@@ -139,15 +187,6 @@ void Task2code(void * pvParameters){
 
 void setup() {
   Serial.begin(115200);
-  
-  // Starting up the sensors and the wireless connection
-  initWireless();
-  setupSensors();
-
-  // setting up the display
-  setupDisplay();
-  firstLevel();
-
 
   pinMode(NEXT_PIN, INPUT_PULLUP);
   pinMode(ENTER_PIN, INPUT_PULLUP);
@@ -156,6 +195,13 @@ void setup() {
   attachInterrupt(NEXT_PIN, nextOnPress, FALLING);
   attachInterrupt(ENTER_PIN, enterOnPress, FALLING);
 
+  // Starting up the sensors and the wireless connection
+  initWireless();
+  setupSensors();  
+  
+  // setting up the display
+  setupDisplay();
+  firstLevel();
 
 
   xTaskCreatePinnedToCore(
@@ -172,7 +218,7 @@ void setup() {
   xTaskCreatePinnedToCore(
                     Task2code,   /* Task function. */
                     "Task2",     /* name of task. */
-                    12000,       /* Stack size of task */
+                    15000,       /* Stack size of task */
                     NULL,        /* parameter of the task */
                     1,           /* priority of the task */
                     &Task2,      /* Task handle to keep track of created task */
@@ -180,6 +226,9 @@ void setup() {
   delay(500);
 
   //vTaskSuspend(Task2);
+  
+  
+  
 }
 
 void loop() {

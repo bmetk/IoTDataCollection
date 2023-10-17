@@ -31,6 +31,8 @@ bool inSecondLevel = false;
 bool inThirdLevel = false;
 int prevCursorY = headerHeight;
 
+bool sendMeasurements = false;
+
 //-----------------
 // HOME TAB CONTENT
 //-----------------
@@ -46,7 +48,7 @@ String homeContent[homeRow][homeCol] = {{"",      "ONLINE",        "SENSOR"},
 //-----------------------------------------------------------
 // ERRORS TAB CONTENT
 //
-// possible errors: wifi(1-1) + mqtt(1-1) + sensors(3-1) = 9;
+// possible errors: online(1-1) + sensors(3-1) = 6;
 // if an error exists, the corresponding state is set to 1
 //-----------------------------------------------------------
 const int errorCount = 6;
@@ -57,7 +59,7 @@ const String errorContent[errorCount] = {"ESP1 CON",
                                          "ESP2 CON",
                                          "ACCEL"};
 const String noErrors = "NO ERRORS";
-int errorEnable[errorCount] = {0,0,0,0,0,0};
+int errorEnable[errorCount] = {1,0,0,1,1,1};
 
 
 //---------------------------------------
@@ -154,6 +156,28 @@ void updateState(char* btnId) {
 }
 
 
+//----------------------------------------------
+//  Checking and setting measurement sync flag
+//----------------------------------------------
+bool checkSendMeasurements() {
+  return sendMeasurements;
+}
+
+void resetSendMeasurements() {
+  sendMeasurements = false;
+}
+
+String checkEsp2State() {
+  return homeContent[2][1];
+}
+
+bool isCollectionEnabled() {
+  return enableDataCollection;
+}
+
+void setErrorEnable(int index, int value) {
+  errorEnable[index] = value;
+}
 
 
 //------------------------------------------------------------
@@ -164,72 +188,57 @@ void updateState(char* btnId) {
 //    - OFFLINE (error)    0x02
 //    - OFFLINE (manula)   0x04
 //    - MPU DOWN           0x08
-//    - MPU UP             0x0F
+//    - MPU UP             0x10
 //
 //------------------------------------------------------------
-void processSerial(int16_t msg) {
+u_char prevMsg = 0;
+void processSerial(u_char msg) {
 
-  if(msg != 0) {
+  /*if(msg == '<') {
+    prevMsg == msg;
+    Serial.print("Received: "); Serial.println(msg);
+  }*/
+  if(msg != 0 && msg <= 0x1F /*&& prevMsg == 60*/) {
+    Serial.print("Message: 0x"); Serial.println(msg, HEX);
 
-    if(msg & 0x01 == 0x01) {
-      homeContent[1][2] = espHealth[0];
-      errorEnable[4] = 0;
+    if(msg & 0x01) {
+      homeContent[2][1] = espHealth[0];
+      errorEnable[4] = 0;      
+      Serial.print(".  ONLINE");
     }
-    else if(msg & 0x02 == 0x02) {
-      homeContent[1][2] = espHealth[1];
+    if(msg & 0x02) {
+      homeContent[2][1] = espHealth[1];
       errorEnable[4] = 1;
+      Serial.print(".  OFFLINE (ERR)");
+      Serial.println(errorEnable[4]);
     }
-    else if(msg & 0x04 == 0x04) {
-      homeContent[1][2] = espHealth[2];
+    if(msg & 0x04) {
+      homeContent[2][1] = espHealth[2];
+      errorEnable[4] = 0;
+      Serial.print(".  OFFLINE (MANUAL)");
     }
-    else if(msg & 0x08 == 0x08) {
+    if(msg & 0x08) {
       homeContent[2][2] = espHealth[1];
       errorEnable[5] = 1;
+      Serial.print(".  MPU DOWN");
     }
-    else if(msg & 0x0F == 0x0F) {
+    if(msg & 0x10) {
       homeContent[2][2] = espHealth[0];
       errorEnable[5] = 0;
+      Serial.print(".  MPU UP");
     }
-
+    Serial.println("");
+    for(int i=0; i<errorCount; i++) {
+      Serial.print(errorEnable[i]);
+      Serial.print(", ");
+    }
+    Serial.println("");
     firstLevel();
   }
-
-/*
-  switch(msg) {
-    case 0x01:
-      homeContent[1][2] = espHealth[0];
-      errorEnable[4] = 0;
-      firstLevel();
-      break;
-    
-    case 0x02:
-      homeContent[1][2] = espHealth[1];
-      errorEnable[4] = 1;
-      firstLevel();
-      break;
-
-    case 0x04:
-      homeContent[1][2] = espHealth[2];
-      firstLevel();
-      break;
-
-    case 0x08:
-      errorEnable[5] = 1;
-      homeContent[2][2] = espHealth[1];
-      firstLevel();
-      break;
-
-    case 0x0F:
-      errorEnable[5] = 0;
-      homeContent[2][2] = espHealth[0];
-      firstLevel();
-      break;
-
-    default:
-      break;
+  else if(msg == 0xAA /*&& prevMsg == 60*/) {
+    Serial.println("Accel data ready");
+    sendMeasurements = true;
   }
-*/
-
 }
 
 
@@ -258,6 +267,23 @@ void homeTab() {
   * Displays general information about the microcontrollers.
   * Upon entering, you can view detailed info on each ESP.
   */
+  for (int i=0; i<errorCount; i++) {
+    if(errorEnable[i] != 0) {
+      if(i==0) {
+        homeContent[1][1]=espHealth[1];
+      }
+      if(i>=1&& i<=3) {
+        homeContent[1][2]=espHealth[1];
+      }
+    }
+  }
+
+  if(errorEnable[0] == 0 && homeContent[1][1] != espHealth[2]) {
+    homeContent[1][1] = espHealth[0];
+  } 
+  if(errorEnable[1] == 0 && errorEnable[2] == 0 && errorEnable[3] == 0) {
+    homeContent[1][2] = espHealth[0];
+  }
 
   // screen header
   oled.clearDisplay();
@@ -301,19 +327,23 @@ void errorTab(/*bool nextPage*/) {
 
   bool errESP1 = false, errESP2 = false;
   int errorNumber = 0;
-  int overflowIdx = 0;
+  //int overflowIdx = 0;
   int spacing = 0;
-  int x=0, y=0;
+  int x = textWidth+padding;
+  int y = 0;
   
   // check for errors
   for(int i=0; i<errorCount; i++){
     if(errorEnable[i] != 0) {
       errorNumber++;
+      
 
-      if(i<4)
+      if(i<4) {
         errESP1 = true;
-      else
+      }
+      else {
         errESP2 = true;
+      }
     }
   }
 
@@ -323,37 +353,40 @@ void errorTab(/*bool nextPage*/) {
     oled.print(noErrors);
   }
   else {
+    Serial.println("Updating Error page");
     // update Home content
-    if(errESP1)
-      homeContent[1][2] = espHealth[1];
-    if(errESP2)
-      homeContent[2][2] = espHealth[1];
+    //if(errESP1)
+    //  homeContent[1][2] = espHealth[1];
+    //if(errESP2)
+    //  homeContent[2][2] = espHealth[1];
     
     // draw column divider
     oled.drawLine(SCREEN_W/2-1, headerHeight,    SCREEN_W/2-1, SCREEN_H-1, WHITE); //vertical
 
 
+    
 
     for(int i=0; i<errorCount; i++) {
-      x = textWidth+padding;
       y = spacing * (offsetY+padding) + headerHeight;
 
       if(errorEnable[i] != 0) {
+        Serial.print("Error found at index "); Serial.println(i);
         oled.setCursor(x, y);
         oled.print(errorContent[i]);
         spacing++;
-
-        if(i = 3) {
-          x += SCREEN_W/2-1;
-          spacing = 0;
-        }
       }
+      if(i == 3) {
+        x = x + SCREEN_W/2-1;
+        spacing = 0;
+      }
+      
     }
   }
   
 
 
   oled.display();
+  Serial.println("Error page updated");
 }
 
 
@@ -442,9 +475,6 @@ void drawCursor(int idx){
 //
 //=======================================================================================
 
-bool isCollectionEnabled() {
-  return enableDataCollection;
-}
 
 void secondLevel();
 void thirdLevel();
@@ -654,10 +684,12 @@ void thirdLevel(){
 
       case 1: // restart esp1
         drawCursor(0);
-        //currentState[lastIndex] = 0;
+        //
         if(currentState[lastIndex] != 0){
+          currentState[lastIndex] = 0;
           oled.clearDisplay();
           oled.setCursor(16,27);
+          sendSerialMessage(0x01);
           oled.print("Restarting ESP1..");
           oled.display();
           delay(2000);
@@ -668,6 +700,7 @@ void thirdLevel(){
       case 2: // restart esp2
         drawCursor(1);
         if(currentState[lastIndex] != 0){
+          currentState[lastIndex] = 0;
           oled.clearDisplay();
           oled.setCursor(16,27);
           oled.print("Restarting ESP2..");
@@ -675,6 +708,7 @@ void thirdLevel(){
           //restartESP2();
           sendSerialMessage(0x02); // code for restarting esp2
           delay(2000);
+          thirdLevel();
         }
         break;
 

@@ -3,14 +3,14 @@
 #include <credentials.h>
 #include <HardwareSerial.h>
 
-HardwareSerial Serial2(2);
+HardwareSerial SerialInterconn(2);
 
 EspMQTTClient client {
   SSID,
   PASSWD,
   BROKER,
-  MQTTUSR,
-  MQTTPWD,
+  //MQTTUSR,
+  //MQTTPWD,
   CLIENT_ID,
   PORT
 };
@@ -26,7 +26,8 @@ void initWireless(){
   client.setWifiReconnectionAttemptDelay(15000);
 
   // Serial between esps
-  Serial2.begin(9600, SERIAL_8N1, 16, 17);
+  SerialInterconn.begin(115200, SERIAL_8N1, 16, 17);
+  SerialInterconn.flush();
 }
 
 bool checkMqttCon(){
@@ -34,6 +35,14 @@ bool checkMqttCon(){
 }
 bool checkWifiCon(){
   return client.isMqttConnected();
+}
+
+void clearSerialInterconn() {
+  int x;
+  while (x = SerialInterconn.available() > 0)
+  {
+     while (x--) SerialInterconn.read();
+  }
 }
 
 void clientLoop() {
@@ -45,13 +54,16 @@ void sendMqttMessage(char* topic, const char* msg){
   client.publish(topic, msg);
 }
 
-void sendSerialMessage(int16_t msg) {
-  Serial2.write(msg);
+void sendSerialMessage(u_char msg) {
+  SerialInterconn.write(msg);
+  Serial.print("Message sent: 0x"); Serial.println(msg, HEX);
 }
 
-int16_t checkSerialMessage() {
-  if(Serial2.available() >= 1) {
-    return Serial.read();
+u_char checkSerialMessage() {
+  if(SerialInterconn.available() >0) {
+    u_char msg = SerialInterconn.read();
+    //Serial.print("Message received: "); Serial.println(msg);
+    return msg;
   }
   else
     return 0;
