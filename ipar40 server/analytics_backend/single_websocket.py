@@ -191,6 +191,7 @@ async def process_mqtt_payload(payload : str, variable : str) -> dict:
         return result
 
 
+
 def assemble_payload(values : dict) -> str:
     global analytics_decue
 
@@ -211,26 +212,20 @@ def assemble_payload(values : dict) -> str:
 
 
 
-
-
-
-
 async def main():
-    # Create a WebSocket server
+    # create a WebSocket server
     server_realtime = await websockets.serve(realtime_handler, host=host_name, port=8765, ping_interval=None)
 
-
-    # Create and run the MQTT client in parallel with the WebSocket servers
+    # create and run the MQTT client in parallel with the WebSocket servers
     mqtt_task = asyncio.create_task(mqtt_client())
     await asyncio.gather(mqtt_task, server_realtime.wait_closed())
 
 
 if __name__ == '__main__':
-    #for windows plattform
+    # for windows plattform
     if sys.platform.lower() == "win32" or os.name.lower() == "nt":
         from asyncio import set_event_loop_policy, WindowsSelectorEventLoopPolicy
         set_event_loop_policy(WindowsSelectorEventLoopPolicy())
-
 
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
     asyncio.run(main())

@@ -14,8 +14,6 @@
 #define NEXT_PIN 	19
 #define ENTER_PIN 	18
 #define DRDY_PIN 	27
-//volatile int nextPress = 0;
-//volatile int selectPress = 0;
 
 
 // measurement.cpp - amp meter and optocoupler pins

@@ -1,8 +1,8 @@
-#define SSID    ""
-#define PASSWD  ""
-#define MQTTUSR ""
-#define MQTTPWD ""
+#define SSID        ""
+#define PWD         ""
+#define MQTT_USR    ""
+#define MQTT_PWD    ""
+#define MQTT_ADR    ""
+#define PORT        1883
 
-const char* BROKER = "test.mosquitto.org";
-const int PORT = 1883;
 const char* CLIENT_ID = "opendaq1";

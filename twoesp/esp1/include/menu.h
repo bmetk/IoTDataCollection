@@ -3,22 +3,22 @@
 
 #include <Arduino.h>
 
-
-void updateState(char* btnId="");
-void setupDisplay();
-void printTabHeader(String title="");
 void homeTab();
-void errorTab(/*bool nextPage = false*/);
+void errorTab();
 void settingsTab();
+void firstLevel();
+void setupDisplay();
 void drawCursor(int idx);
-bool isCollectionEnabled();
-void processSerial(u_char msg);
-bool checkSendMeasurements();
 void resetSendMeasurements();
-String checkEsp2State();
+void updateState(char* btnId="");
+void printTabHeader(String title="");
+void processSerial(u_char msg);
 void setErrorEnable(int index, int value);
 
-void firstLevel();
+bool checkSendMeasurements();
+bool isCollectionEnabled();
+
+String checkEsp2State();
 
 
 #endif

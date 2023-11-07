@@ -16,7 +16,6 @@ dash.register_page(__name__, path="/")
 
 layout = dbc.Container([
     WebSocket(id="ws", url="ws://127.0.0.1:8765/realtime"),
-    #dcc.Interval(id='ws-source-timer', interval=1000),
 
     html.Br(),
 
@@ -59,24 +58,10 @@ layout = dbc.Container([
     html.Br(),
     html.Br(),
 ])
-"""prev_url = 'ws://localhost:8765/realtim'
 
-@callback(
-        Output('ws', 'url'),
-        Input('ws-source-timer', 'n_interval')
-)
-def update_source(num):
-    global prev_url
-    try:
-        url = ''
-        with open('source.txt', 'r') as file:
-            url = file.readline()
-        if prev_url != url:
-            prev_url = url
-            return url
-    except:
-        return prev_url"""
-        
+
+
+
 
 @callback(
         Output('tabs-content-vib-graph', 'children'),
@@ -128,7 +113,6 @@ def get_spectrum_grph(tab, msg):
     fig.update_yaxes(title="Amplitude [dB]", type='log')
 
     return html.Div([
-        #html.H3('Z axis vibrations'),
         dcc.Graph(figure=fig)
     ])
 

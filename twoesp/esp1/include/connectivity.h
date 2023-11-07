@@ -3,14 +3,12 @@
 
 #include <Arduino.h>
 
-
-void initWireless();
-bool checkMqttCon();
-bool checkWifiCon();
+void initCom();
+bool checkClientCon();
 void clientLoop();
 void sendMqttMessage(char* topic, const char* msg);
 void sendSerialMessage(u_char msg);
-u_char checkSerialMessage();
 void clearSerialInterconn();
+u_char checkSerialMessage();
 
 #endif

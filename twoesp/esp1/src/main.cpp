@@ -1,9 +1,8 @@
 /*
 
-  This version runs on a single esp32 with 4 sensors, a display and navigation buttons
+  This version runs 3 sensors, a display and navigation buttons
   
   The sensors are:
-    - MPU9250 vibration sensor
     - optocouler
     - temperature sensor
     - current meter
@@ -41,16 +40,17 @@
 TaskHandle_t Task1;
 TaskHandle_t Task2;
 
-
 #define NEXT_PIN 19
 #define ENTER_PIN 18
 volatile bool nextPressed = false;
 volatile bool enterPressed = false;
 unsigned long buttonTime = 0;
 unsigned long lastButtonTime = 0;
-const int debounceInteval = 250; // 250ms for button debouncing
+const int debounceInteval = 250;
 unsigned long previousMillis;
 const unsigned int measurementInterval = 1300;
+
+
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -59,19 +59,17 @@ const unsigned int measurementInterval = 1300;
 ////////////////////////////////////////////////////////////////////////////////////////
 
 
+
 //-----------------------
 // Checking ESP1's health
 //-----------------------
-bool prevMqtt = false, prevWifi = false, prevTemp = false; 
-bool mqtt = false, wifi = false, temp = false; 
+bool prevClientCon = false, prevTemp = false; 
+bool clientCon = false, temp = false; 
 void checkEsp1Health() {
-  mqtt = checkMqttCon();
-  wifi = checkWifiCon();
-  //temp = checkTempSensor();
+  clientCon = checkClientCon();
 
-  if(mqtt && wifi){
+  if(clientCon){
     setErrorEnable(0, 0);
-    
   }
   else {
     setErrorEnable(0, 1);
@@ -82,10 +80,9 @@ void checkEsp1Health() {
   else {
     setErrorEnable(3, 1);
   }*/
-  if (prevMqtt != mqtt || prevWifi != wifi /*|| prevTemp != temp*/){
-    prevMqtt = mqtt;
-    prevWifi = wifi;
-    //prevTemp = temp;
+  if (prevClientCon != clientCon /*|| prevTemp != temp*/){
+    prevClientCon = clientCon;
+    //prevTemp = temp
 
     firstLevel();
   }
@@ -141,7 +138,7 @@ void Task1code(void * pvParameters){
 // Function for Task2 - reading sensor data and sending it out
 //------------------------------------------------------------
 void Task2code(void * pvParameters){
-  while(!checkMqttCon()){
+  while(!checkClientCon()){
     delay(200);
     
     clientLoop();
@@ -162,8 +159,9 @@ void Task2code(void * pvParameters){
       Serial.println("task2 done");
       //previousMillis = millis();
     }
-    else if(millis() - previousMillis > measurementInterval && isCollectionEnabled() && checkEsp2State() == "OFF") { // check if acceleration data is ready
-      resetSendMeasurements(); // reseting the flag
+    // check if acceleration data is ready
+    else if(millis() - previousMillis > measurementInterval && isCollectionEnabled() && checkEsp2State() == "OFF") { 
+      resetSendMeasurements();
       getCurrent();
       getRpm();
       //getTempC();
@@ -185,6 +183,7 @@ void Task2code(void * pvParameters){
 ////////////////////////////////////////////////////////////////////////////////////////
 
 
+
 void setup() {
   Serial.begin(115200);
 
@@ -195,8 +194,8 @@ void setup() {
   attachInterrupt(NEXT_PIN, nextOnPress, FALLING);
   attachInterrupt(ENTER_PIN, enterOnPress, FALLING);
 
-  // Starting up the sensors and the wireless connection
-  initWireless();
+  // starting up the sensors and the wireless connection
+  initCom();
   setupSensors();  
   
   // setting up the display
@@ -224,11 +223,6 @@ void setup() {
                     &Task2,      /* Task handle to keep track of created task */
                     0);          /* pin task to core 1 */
   delay(500);
-
-  //vTaskSuspend(Task2);
-  
-  
-  
 }
 
 void loop() {

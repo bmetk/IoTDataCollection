@@ -109,10 +109,6 @@ void setupDisplay() {
   
   oled.setTextSize(textSize);
   oled.setTextColor(WHITE);
-  //oled.setFont(&FreeSans9pt7b);
-
-  pinMode(ESP2_RESTART_PIN, OUTPUT);
-  digitalWrite(ESP2_RESTART_PIN, LOW);
 }
 
 
@@ -122,6 +118,7 @@ void setupDisplay() {
 //    Function definitions
 //
 //////////////////////////////////////////////////////////////////////////////////////
+
 
 
 //--------------------------------------------------------------
@@ -134,6 +131,8 @@ void printState() {
   Serial.print(currentState[2]); Serial.print(":"); 
   Serial.println(currentState[3]);
 }
+
+
 
 //-----------------------------------------------
 // Updates the current state after a button press
@@ -154,6 +153,7 @@ void updateState(char* btnId) {
   }
   firstLevel();
 }
+
 
 
 //----------------------------------------------
@@ -180,6 +180,7 @@ void setErrorEnable(int index, int value) {
 }
 
 
+
 //------------------------------------------------------------
 // Checks Serial2 for messages and updates content accordingly
 //
@@ -194,11 +195,7 @@ void setErrorEnable(int index, int value) {
 u_char prevMsg = 0;
 void processSerial(u_char msg) {
 
-  /*if(msg == '<') {
-    prevMsg == msg;
-    Serial.print("Received: "); Serial.println(msg);
-  }*/
-  if(msg != 0 && msg <= 0x1F /*&& prevMsg == 60*/) {
+  if(msg != 0 && msg <= 0x1F) {
     Serial.print("Message: 0x"); Serial.println(msg, HEX);
 
     if(msg & 0x01) {
@@ -235,12 +232,11 @@ void processSerial(u_char msg) {
     Serial.println("");
     firstLevel();
   }
-  else if(msg == 0xAA /*&& prevMsg == 60*/) {
+  else if(msg == 0xAA) {
     Serial.println("Accel data ready");
     sendMeasurements = true;
   }
 }
-
 
 
 
@@ -255,7 +251,6 @@ void printTabHeader(String title) {
   oled.print(title);
   oled.setTextColor(WHITE);
 }
-
 
 
 
@@ -310,8 +305,6 @@ void homeTab() {
 
 
 
-
-
 //------------------------------------------------------
 // Assembles the Error tab's content with current issues
 //------------------------------------------------------
@@ -327,7 +320,6 @@ void errorTab(/*bool nextPage*/) {
 
   bool errESP1 = false, errESP2 = false;
   int errorNumber = 0;
-  //int overflowIdx = 0;
   int spacing = 0;
   int x = textWidth+padding;
   int y = 0;
@@ -353,18 +345,9 @@ void errorTab(/*bool nextPage*/) {
     oled.print(noErrors);
   }
   else {
-    Serial.println("Updating Error page");
-    // update Home content
-    //if(errESP1)
-    //  homeContent[1][2] = espHealth[1];
-    //if(errESP2)
-    //  homeContent[2][2] = espHealth[1];
-    
+
     // draw column divider
-    oled.drawLine(SCREEN_W/2-1, headerHeight,    SCREEN_W/2-1, SCREEN_H-1, WHITE); //vertical
-
-
-    
+    oled.drawLine(SCREEN_W/2-1, headerHeight,    SCREEN_W/2-1, SCREEN_H-1, WHITE);
 
     for(int i=0; i<errorCount; i++) {
       y = spacing * (offsetY+padding) + headerHeight;
@@ -379,18 +362,12 @@ void errorTab(/*bool nextPage*/) {
         x = x + SCREEN_W/2-1;
         spacing = 0;
       }
-      
     }
   }
   
-
-
   oled.display();
   Serial.println("Error page updated");
 }
-
-
-
 
 
 
@@ -415,7 +392,7 @@ void settingsTab() {
   printTabHeader(menuTabs[2] + submenu);
 
   // print settings according to current State in the state machine
-  //
+  
   // settings second level
   if(currentState[2] == 0){
     for(int i=0; i<settingsRow; i++){
@@ -455,16 +432,12 @@ void settingsTab() {
 // Draws the cursor in front of the current line (only after entering menu)
 //-------------------------------------------------------------------------
 void drawCursor(int idx){
-  // deleting cursor(s)
+  // deleting previous cursor
   oled.fillRect(0, headerHeight, textWidth-1, SCREEN_H-1, BLACK);
   oled.setCursor(0, idx*(offsetY+padding) + headerHeight);
+
   oled.print(cursor);
   oled.display();
-
-  //prevCursorY += offsetY;
-  //if(prevCursorY > SCREEN_H){
-  // prevCursorY = headerHeight;
-  //}
 }
 
 
@@ -504,26 +477,9 @@ void toggleEsp2() {
   - set flag to enable/disable measurements (suspend/resume task2)
   - set home tab content to ok/off
   */
-  if(homeContent[2][1] != espHealth[2]) {
-    homeContent[2][1] = espHealth[2];
-    // send signal to esp2
-  }
-  else if(homeContent[2][1] == espHealth[2]) {
-    homeContent[2][1] = espHealth[0];
-    // send signal to esp2
-  }
+  sendSerialMessage(0x01); // code for toggle
 }
 
-
-
-//----------------------------------------------------------
-// Restart ESP2 via digital pin
-//----------------------------------------------------------
-void restartESP2() {
-  digitalWrite(ESP2_RESTART_PIN, HIGH);
-  delay(100);
-  digitalWrite(ESP2_RESTART_PIN, LOW);
-}
 
 
 //--------------------------------------------------------------------------------------------------
@@ -557,12 +513,10 @@ void firstLevel() {
     
     default:
       currentState[0] = 0;
-      //Serial.print("first level set to: "); Serial.println(currentState[0]);
       firstLevel();
       break;
   }
 }
-
 
 
 
@@ -608,18 +562,15 @@ void secondLevel() {
       case 3: // back
         drawCursor(2);
         if(currentState[lastIndex] != 0) {
-
-          currentState[1] = 0;                          // zero out current level index
-          currentState[lastIndex] = 0;                  // zero out enter counter
-          inSecondLevel = false;                        // set level flag
-          //Serial.println("back pressed on level 2");    // logging
-          firstLevel();                                 // update display
+          currentState[1] = 0;                          
+          currentState[lastIndex] = 0;                  
+          inSecondLevel = false;                       
+          firstLevel();
         }
         break;
 
       default:
         currentState[1] = 1;
-        //Serial.print("second level set to: "); Serial.println(currentState[1]);
         secondLevel();
         break;
     }
@@ -643,7 +594,13 @@ void thirdLevel(){
         drawCursor(0);
         if(currentState[lastIndex] != 0) {
           currentState[lastIndex] = 0;
+          oled.clearDisplay();
+          oled.setCursor(16,27);
+          oled.print("Toggling ESP1..");
+          oled.display();
           toggleEsp1();
+          delay(2000);
+          thirdLevel();
         }
         break;
 
@@ -651,8 +608,13 @@ void thirdLevel(){
         drawCursor(1);
         if(currentState[lastIndex] != 0) {
           currentState[lastIndex] = 0;
-          //toggleEsp2();
-          sendSerialMessage(0x01); // code for toggle
+          oled.clearDisplay();
+          oled.setCursor(16,27);
+          oled.print("Toggling ESP2..");
+          oled.display();
+          toggleEsp2();
+          delay(2000);
+          thirdLevel();
         };
         break;
 
@@ -669,7 +631,6 @@ void thirdLevel(){
 
       default:
         currentState[2] = 1;
-        //Serial.print("third level set to: "); Serial.println(currentState[2]);
         thirdLevel();
         break;
     }
@@ -684,7 +645,6 @@ void thirdLevel(){
 
       case 1: // restart esp1
         drawCursor(0);
-        //
         if(currentState[lastIndex] != 0){
           currentState[lastIndex] = 0;
           oled.clearDisplay();
@@ -705,7 +665,6 @@ void thirdLevel(){
           oled.setCursor(16,27);
           oled.print("Restarting ESP2..");
           oled.display();
-          //restartESP2();
           sendSerialMessage(0x02); // code for restarting esp2
           delay(2000);
           thirdLevel();
@@ -724,7 +683,6 @@ void thirdLevel(){
 
       default:
         currentState[2] = 1;
-        //Serial.print("third level set to: "); Serial.println(currentState[2]);
         thirdLevel();
         break;
     }

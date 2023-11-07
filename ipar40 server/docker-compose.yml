@@ -44,16 +44,16 @@ services:
     ports:
      - 8125:8125
 
-
-
   analytics_backend:
     build: ./analytics_backend
     container_name: analytics_backend
     env_file: .env
     restart: always
+    depends_on:
+      - mosquitto
     ports:
       - 8765:8765
-      - 8766:8766
+      #- 8766:8766
 
   frontend:
     build: ./dashboard/frontend
@@ -71,5 +71,6 @@ services:
     env_file: .env
     depends_on:
       - frontend
+      - influxdb
     ports:
       - 5000:5000

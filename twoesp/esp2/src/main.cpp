@@ -3,6 +3,7 @@
 #include "EspMQTTClient.h"
 #include "ArduinoJson.h"
 #include <HardwareSerial.h>
+#include "credentials.h"
 
 
 
@@ -17,20 +18,20 @@
 #define VIBX_TOPIC "bmetk/markk/lathe/vibration/mpu9250/vibX"
 #define VIBY_TOPIC "bmetk/markk/lathe/vibration/mpu9250/vibY"
 #define VIBZ_TOPIC "bmetk/markk/lathe/vibration/mpu9250/vibZ"
-#define PORT       1883
+
 #define DRDY_PIN   27
 #define MPU_ADDR   0x68
 #define WHOAMI_REG 0x75
 
 
 EspMQTTClient client(
-  "",//SSID,
-  "",//"PWD,
-  "test.mosquitto.org",
-  //MQTT USR,
-  //MQTT PWD,
+  SSID,
+  PWD,
+  MQTT_ADDR,
+  MQTT_USR,
+  MQTT_PWD,
   "opendaq2",
-  PORT
+  MQTT_PORT
 );
 
 
@@ -46,12 +47,12 @@ StaticJsonDocument<CAPACITY> docZ;
 
 static constexpr float G_MPS2 = 9.80665f;
 float accel_scale;
-const int sampleSize = 1024;
-bool DATA_READY = false;
+const int sampleSize =          1024;
+bool DATA_READY =               false;
 bool READ = false;
-bool enableCollection = false; // waiting for ESP1 command to start
-int intCounter = 0;
-int idx = 0;
+bool enableCollection =         false;
+int intCounter =                0;
+int idx =                       0;
 
 
 int16_t rawX[sampleSize];
@@ -62,24 +63,12 @@ float vRealY[sampleSize];
 float vRealZ[sampleSize];
 
 
-bool mpuOk = true, prevMpuOk;
-bool clientOk = true, prevClientOk;
+bool mpuOk =             true, prevMpuOk;
+bool clientOk =          true, prevClientOk;
 bool enableDiagnostics = false;
-bool stateChange = false;
+bool stateChange =       false;
 
 
-////////////////////////////////////////////////////////////////////////////////////////
-//
-//    Setup / interrupts
-//
-////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-void IRAM_ATTR onDataReady() {
-  READ = true;
-  intCounter++;
-}
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -95,6 +84,7 @@ void sendJsonMessage();
 void checkSystemHealth();
 void checkSerialMessage();
 void sendSerialMessage();
+
 void clearSerialInterconn() {
   int x;
   while (x = SerialInterconn.available() > 0)
@@ -105,37 +95,53 @@ void clearSerialInterconn() {
 
 
 
+////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Setup / interrupts
+//
+////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+void IRAM_ATTR onDataReady() {
+  READ = true;
+  intCounter++;
+}
+
+
 
 void setup() {
   Serial.begin(115200);
   while(!Serial) {}
 
-
   Wire.begin();
   Wire.setClock(400000);
 
-  //WiFi and MQTT configuration
+  // configuring MQTT and WiFi clients
   //client.enableDebuggingMessages();
   client.setMaxPacketSize(20000);
-  client.setMqttReconnectionAttemptDelay(10000);
-  client.setWifiReconnectionAttemptDelay(15000);
+  client.setMqttReconnectionAttemptDelay(1000);
+  client.setWifiReconnectionAttemptDelay(1000);
 
 
 
-  // Accelerometer configuration
+  // accelerometer configuration
   imu.Config(&Wire, bfs::Mpu6500::I2C_ADDR_PRIM); // default address is 0x68
   
   if (!imu.Begin()) {
     Serial.println("Error initializing communication with IMU");
-    while(1) {}
+    //while(1) {}
   }
+
   // setting sample rate divider (0 is 1000Hz)
   if (!imu.ConfigSrd(0)) {
     Serial.println("Error configured SRD");
-    while(1) {}
+    //while(1) {}
   }
+
   // setting acceleration range to 4g
   imu.ConfigAccelRange(bfs::Mpu6500::ACCEL_RANGE_4G);
+
   // enableing data ready interrupt for reading
   if (!imu.EnableDrdyInt()) {
     Serial.println("Error enableing data ready interrupt");
@@ -143,6 +149,7 @@ void setup() {
 
   accel_scale = imu.accel_range()/32767.5f;
 
+  // interrupt
   pinMode(DRDY_PIN, INPUT_PULLUP);
   attachInterrupt(DRDY_PIN, onDataReady, RISING);
 
@@ -156,6 +163,7 @@ void setup() {
   // sending initial health
   delay(2000);
 
+  // starting serial connection between ESPs
   SerialInterconn.begin(115200, SERIAL_8N1, 16, 17);
   clearSerialInterconn();
   sendSerialMessage();
@@ -185,8 +193,7 @@ void loop() {
     enableDiagnostics = true;
   }
 
-  if(enableDiagnostics || !mpuOk) { // ezt át kell nézni, hogy ne álljon le az olvasás de ne is zavarja az adatgyűjtést
-    //Serial.println("Checking serial messages");
+  if(enableDiagnostics || !mpuOk) {
     checkSerialMessage();
     checkSystemHealth();
     if(stateChange) {
@@ -224,9 +231,22 @@ void onConnectionEstablished() {
 //-------------------------------------------------
 void collectData() {
   Wire.beginTransmission(bfs::Mpu6500::I2C_ADDR_PRIM);
-  Wire.write(0x3B); // Start with register 0x3B (ACCEL_XOUT_H)
-  Wire.endTransmission(false);
-  Wire.requestFrom(bfs::Mpu6500::I2C_ADDR_PRIM, 6 , true/**/); // Read 6 registers total, each axis value is stored in 2 registers
+  Wire.write(0x3B); // start with register 0x3B (ACCEL_XOUT_H)
+  int transmissionResult = Wire.endTransmission(false);
+
+  if (transmissionResult != 0) {
+    // I2C connection failed, set enableDiagnostics to true
+    enableDiagnostics = true;
+    return;
+  }
+
+  int bytesRead = Wire.requestFrom(bfs::Mpu6500::I2C_ADDR_PRIM, 6, true); // read 6 registers total, each axis value is stored in 2 registers
+
+  if (bytesRead != 6) {
+    // I2C connection failed, set enableDiagnostics to true
+    enableDiagnostics = true;
+    return;
+  }
 
   rawX[idx] = static_cast<int16_t>(Wire.read() << 8 | Wire.read());
   rawY[idx] = static_cast<int16_t>(Wire.read() << 8 | Wire.read());
@@ -299,12 +319,7 @@ void sendJsonMessage(){
     serializeJson(docY, jsonStringY);
     serializeJson(docZ, jsonStringZ);
 
-    //SerialInterconn.write("<");
     SerialInterconn.write(0xAA); // code for data publishing
-    //SerialInterconn.write(">");
-
-    //String message = "<0x" + String(0xAA, HEX) + ">";
-    //SerialInterconn.write(message.c_str());
 
     client.publish(VIBX_TOPIC, jsonStringX);
     client.publish(VIBY_TOPIC, jsonStringY);
@@ -312,10 +327,7 @@ void sendJsonMessage(){
     Serial.println("Accel data published to broker");
 
     enableDiagnostics = true;
-    //imu.EnableDrdyInt();
   }
-  //else
-  //  enableDiagnostics = true;
 }
 
 
@@ -327,23 +339,17 @@ void checkSystemHealth() {
   prevClientOk = clientOk;
   prevMpuOk = mpuOk;
 
-  if(!client.isConnected()) {
-    clientOk = false;
-  }
-  else {
-    clientOk = true;
-  }
+  // checking client state
+  clientOk = client.isConnected();
+  
+  // checking MPU state via WHOAMI register
+  Wire.beginTransmission(MPU_ADDR);
+  Wire.write(WHOAMI_REG);
+  Wire.endTransmission(false);
+  Wire.requestFrom(MPU_ADDR, 1);
 
-  Wire.beginTransmission(MPU_ADDR); // Start communication with MPU6050
-  Wire.write(WHOAMI_REG); // Send WHOAMI register address
-  Wire.endTransmission(false); // Send restart signal to keep connection alive
-
-  Wire.requestFrom(MPU_ADDR, 1); // Request one byte from MPU6500
-
-  if (Wire.available()) { // Check if byte is available
-    byte val = Wire.read(); // Read byte from MPU6500
-    //Serial.println(val, HEX); // Print byte in hexadecimal format
-
+  if (Wire.available()) {
+    byte val = Wire.read();
     mpuOk = true;
   }
   else {
@@ -351,7 +357,7 @@ void checkSystemHealth() {
     idx = 0;
   }
 
-
+  // if there was a change, update the state of the system
   if(clientOk != prevClientOk || mpuOk != prevMpuOk)
     stateChange = true;
 }
@@ -394,14 +400,7 @@ void sendSerialMessage() {
     Serial.print("MPU UP, ");
   }
 
-  //SerialInterconn.write("<");
   SerialInterconn.write(msg);
-  //SerialInterconn.write(">");
-  
-  //String message = "<0x" + String(msg, HEX) + ">";
-  //SerialInterconn.write(message.c_str());
-  
-  //Serial.print("Message sent: 0x"); Serial.println(msg, HEX);
 }
 
 
@@ -418,11 +417,9 @@ void checkSerialMessage() {
       enableCollection = !enableCollection;
       idx = 0;
       stateChange = true;
-      //sendSerialMessage();
       break;
     
     case 0x02:
-      //clearSerialInterconn();
       Serial.println("Restarting ESP2");
       ESP.restart();
       break;

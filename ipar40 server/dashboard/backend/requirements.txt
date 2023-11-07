@@ -1,8 +1,0 @@
-asyncio
-aiohttp
-aiocsv
-websockets
-websockets-routes
-influxdb-client
-numpy
-scipy

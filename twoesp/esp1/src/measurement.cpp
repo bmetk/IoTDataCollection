@@ -2,8 +2,6 @@
 #include <Adafruit_MLX90614.h> // temperature
 #include <connectivity.h>
 
-// MQTT definitions
-
 #define TEMP_TOPIC "bmetk/markk/lathe/temperature/mlx90614/tempC"
 #define RPM_TOPIC  "bmetk/markk/lathe/speed/m0c70t3/rpm"
 #define AMP_TOPIC  "bmetk/markk/lathe/current/ampmeter/amp"
@@ -25,16 +23,20 @@ unsigned long previousTime = 0;
 
 
 // measurement variables
-const int resistor = 100; // 100 Ohm resistor connected to the coil
+const int resistor = 150; // 100 Ohm resistor connected to the coil
 float rpm = 0;
 volatile int holes;
 
-// interrupt
+// interrupt routine for rpm measurement
 void countHoles(){
     holes++;
 }
 
 
+
+//---------------------
+// Initializing sensors
+//---------------------
 void setupSensors() {
     // Current meter setup
     pinMode(PHASE1_PIN, INPUT);
@@ -45,29 +47,26 @@ void setupSensors() {
     // Optocoupler setup
     pinMode(OPTO_PIN, INPUT_PULLUP);
     attachInterrupt(OPTO_PIN, countHoles, FALLING);
+    previousTime = millis();
 
     // Temperature sensor setup
-    
     if (!mlx.begin()) {
         int retry = 0;
 
         while(retry < 10) {
             if (!mlx.begin()) {
                 retry++;
-                delay(200);
+                delay(100);
             }
-            else
-                break;
-        }
-
-        if(retry >= 10) {
-            // set the menu correspondingly
         }
     }
-
-    previousTime = millis();
 }
 
+
+
+//----------------------------------------------------------
+// Function for checking the state of the temperature sensor
+//----------------------------------------------------------
 bool checkTempSensor() {
     if(mlx.readAmbientTempC() != NAN) {
         return true;
@@ -79,11 +78,15 @@ bool checkTempSensor() {
 }
 
 
-// Current measurement
+
+//------------------------------------------------------------------
+// Measurement functions for rpm, current draw and motor temperature
+//------------------------------------------------------------------
+
+// current
 double readVoltage(int pin){
     return (analogRead(pin)/4096*3.3);
 }
-
 
 double voltsToAmps(double voltage, double offset){
     voltage -= offset;
@@ -101,6 +104,8 @@ void getCurrent(){
     sendMqttMessage(AMP_TOPIC, current.c_str());
 }
 
+
+
 // RPM measurement
 void getRpm() {
     currentTime = millis();
@@ -109,6 +114,8 @@ void getRpm() {
     previousTime = currentTime;
     sendMqttMessage(RPM_TOPIC, String(rpm).c_str());
 }
+
+
 
 // Temperature measurement
 void getTempC() {

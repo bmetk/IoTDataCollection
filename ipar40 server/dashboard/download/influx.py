@@ -11,7 +11,7 @@ async def get_last_n_element(start_time: str) -> str | None:
         location = f'from(bucket: "{bucket}")'
 
         # Assembling the range component
-        range_component = f'|> range(start: -40m)'
+        range_component = f'|> range(start: -{start_time}d)'
 
         # Assembling the measurement filter component
         measurement_filter = '|> filter(fn: (r) => r._measurement == "' + f'" or r._measurement == "'.join(query_download['measurements']) + '")'

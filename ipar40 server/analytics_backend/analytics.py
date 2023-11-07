@@ -4,11 +4,10 @@ from scipy.fft import fft, fftfreq, fftshift
 import json
 #import ast
 
-#import matplotlib.pyplot as plt
 
 sampling_freq = 1000 # Hz
 
-def string_to_array(arr_string: str):
+def string_to_array(arr_string: str) -> np.array:
     try:
         split_string = arr_string.strip("b'[]").split(',')
         vib_array = np.array([float(x.strip()) for x in split_string])
@@ -27,7 +26,7 @@ def calculate_fft(vib_array : np.array([])) -> str:
     positive_freq = freq[:len(freq) // 2]
     fft_result_positive = 2.0 / vib_array.size * np.abs(fft_result[:len(fft_result) // 2])
 
-    # Filter the FFT result to avoid aliasing based on the Nyquist frequency
+    # filter the FFT result to avoid aliasing based on the Nyquist frequency
     nyquist_freq = sampling_freq / 2
     fft_filtered = fft_result_positive[freq[:len(fft_result) // 2] <= nyquist_freq]
 

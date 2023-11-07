@@ -1,12 +1,12 @@
 import dash
-from dash import html, dcc, Input, Output, callback
+from dash import html, Input, Output
 import dash_bootstrap_components as dbc
 from dash_extensions import WebSocket
 import base64
 
 
 
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY, dbc.icons.FONT_AWESOME], use_pages=True)
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY], use_pages=True)
 logo = "images/logo.png"
 logo_base64 = base64.b64encode(open(logo, 'rb').read()).decode('ascii')
 

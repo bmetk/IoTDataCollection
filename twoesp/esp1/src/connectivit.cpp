@@ -5,37 +5,26 @@
 
 HardwareSerial SerialInterconn(2);
 
+//------------------------
+// Creating the ESP client
+//------------------------
 EspMQTTClient client {
   SSID,
-  PASSWD,
-  BROKER,
-  //MQTTUSR,
-  //MQTTPWD,
-  CLIENT_ID,
+  PWD,
+  MQTT_ADR,
+  MQTT_USR,
+  MQTT_PWD,
+  "opendaq1",
   PORT
 };
+
+
 
 void onConnectionEstablished(){
   Serial.println("ESP ONLINE");
 }
 
-void initWireless(){
-  client.enableDebuggingMessages();
-  client.setMaxPacketSize(20000);
-  client.setMqttReconnectionAttemptDelay(10000);
-  client.setWifiReconnectionAttemptDelay(15000);
 
-  // Serial between esps
-  SerialInterconn.begin(115200, SERIAL_8N1, 16, 17);
-  SerialInterconn.flush();
-}
-
-bool checkMqttCon(){
-  return client.isMqttConnected();
-}
-bool checkWifiCon(){
-  return client.isMqttConnected();
-}
 
 void clearSerialInterconn() {
   int x;
@@ -45,24 +34,51 @@ void clearSerialInterconn() {
   }
 }
 
+
+//------------------------------------
+// Initializing communication channels
+//------------------------------------
+void initCom(){
+  // configuring the client
+  client.setMaxPacketSize(20000);
+  client.setMqttReconnectionAttemptDelay(1000);
+  client.setWifiReconnectionAttemptDelay(1000);
+
+  // Serial communication between esps
+  SerialInterconn.begin(115200, SERIAL_8N1, 16, 17);
+  clearSerialInterconn();
+}
+
+
+
+bool checkClientCon(){
+  return client.isConnected();
+}
+bool checkWifiCon(){
+  return client.isWifiConnected();
+}
 void clientLoop() {
   client.loop();
 }
 
+
+
 void sendMqttMessage(char* topic, const char* msg){
-  //Serial.println(msg);
   client.publish(topic, msg);
 }
+
+
 
 void sendSerialMessage(u_char msg) {
   SerialInterconn.write(msg);
   Serial.print("Message sent: 0x"); Serial.println(msg, HEX);
 }
 
+
+
 u_char checkSerialMessage() {
   if(SerialInterconn.available() >0) {
     u_char msg = SerialInterconn.read();
-    //Serial.print("Message received: "); Serial.println(msg);
     return msg;
   }
   else

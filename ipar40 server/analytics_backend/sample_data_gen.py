@@ -4,15 +4,12 @@ from datetime import datetime, timedelta
 import analytics as an
 from collections import deque
 
-# Function to generate a random float array with 1024 elements
+#generate a random float array with 1024 elements
 def generate_float_array():
     return str([round(random.uniform(0, 100), 2) for _ in range(1024)])
 
-# Function to generate a random timestamp
-
-def generate_incremented_timestamp(count):
-    #start = datetime(2023, 8, 3, 13, 18, 50)
-    #end = start + timedelta(seconds=count * 2)  # Increment time by 2 seconds per count
+# generate a random timestamp
+def generate_incremented_timestamp():
     return datetime.today()
 
 
