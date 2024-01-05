@@ -4,7 +4,7 @@ import websockets
  
 # create handler for each connection
 async def receive_messages():
-    uri = "ws://172.22.101.1:8765/realtime"  # Replace with the actual WebSocket URL
+    uri = "ws://172.26.0.4:8765"  # Replace with the actual WebSocket URL
     
     async with websockets.connect(uri, max_size=3000000) as websocket:
         print(f"Connected to WebSocket server @{uri}")

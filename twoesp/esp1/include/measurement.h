@@ -4,6 +4,8 @@
 
     void setupSensors();
     void getCurrent();
+    void sendCurrent();
+    void setRPMTime();
     void getRpm();
     void getTempC();
     bool checkTempSensor();

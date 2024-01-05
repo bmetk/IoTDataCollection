@@ -40,8 +40,8 @@
 TaskHandle_t Task1;
 TaskHandle_t Task2;
 
-#define NEXT_PIN 19
-#define ENTER_PIN 18
+#define NEXT_PIN 18
+#define ENTER_PIN 19
 volatile bool nextPressed = false;
 volatile bool enterPressed = false;
 unsigned long buttonTime = 0;
@@ -67,6 +67,7 @@ bool prevClientCon = false, prevTemp = false;
 bool clientCon = false, temp = false; 
 void checkEsp1Health() {
   clientCon = checkClientCon();
+  temp = checkTempSensor();
 
   if(clientCon){
     setErrorEnable(0, 0);
@@ -74,15 +75,16 @@ void checkEsp1Health() {
   else {
     setErrorEnable(0, 1);
   }
-  /*if(temp){
+  if(temp){
     setErrorEnable(3, 0);
   }
   else {
     setErrorEnable(3, 1);
-  }*/
-  if (prevClientCon != clientCon /*|| prevTemp != temp*/){
+
+  }
+  if (prevClientCon != clientCon || prevTemp != temp){
     prevClientCon = clientCon;
-    //prevTemp = temp
+    prevTemp = temp;
 
     firstLevel();
   }
@@ -119,12 +121,12 @@ void Task1code(void * pvParameters){
     if(nextPressed) {
       updateState("next");
       nextPressed = false;
-      Serial.println("next");
+      //Serial.println("next");
     }
     else if(enterPressed) {
       updateState("enter");
       enterPressed = false;
-      Serial.println("enter");
+      //Serial.println("enter");
     }
     
 
@@ -146,26 +148,31 @@ void Task2code(void * pvParameters){
   previousMillis = millis();
   clearSerialInterconn();
   sendSerialMessage(0x01);
+  setRPMTime();
   
   for(;;){
     //clientLoop();
     processSerial(checkSerialMessage());
 
+    // periodical reading of the current values
+    getCurrent();
+
     if(checkSendMeasurements()) { // check if acceleration data is ready
       resetSendMeasurements(); // reseting the flag
-      getCurrent();
+      sendCurrent();
       getRpm();
-      //getTempC();
-      Serial.println("task2 done");
+      getTempC();
+      //sendSerialMessage(0x01);
+      //Serial.println("task2 done");
       //previousMillis = millis();
     }
     // check if acceleration data is ready
     else if(millis() - previousMillis > measurementInterval && isCollectionEnabled() && checkEsp2State() == "OFF") { 
       resetSendMeasurements();
-      getCurrent();
+      sendCurrent();
       getRpm();
-      //getTempC();
-      Serial.println("task2 done");
+      getTempC();
+      //Serial.println("task2 done");
       previousMillis = millis();
     }
     
@@ -185,6 +192,8 @@ void Task2code(void * pvParameters){
 
 
 void setup() {
+  setCpuFrequencyMhz(240);
+
   Serial.begin(115200);
 
   pinMode(NEXT_PIN, INPUT_PULLUP);

@@ -40,9 +40,11 @@ void clearSerialInterconn() {
 //------------------------------------
 void initCom(){
   // configuring the client
+  client.enableDebuggingMessages();
+  client.setKeepAlive(10);
   client.setMaxPacketSize(20000);
-  client.setMqttReconnectionAttemptDelay(1000);
-  client.setWifiReconnectionAttemptDelay(1000);
+  client.setMqttReconnectionAttemptDelay(10000);
+  client.setWifiReconnectionAttemptDelay(10000);
 
   // Serial communication between esps
   SerialInterconn.begin(115200, SERIAL_8N1, 16, 17);
@@ -71,7 +73,7 @@ void sendMqttMessage(char* topic, const char* msg){
 
 void sendSerialMessage(u_char msg) {
   SerialInterconn.write(msg);
-  Serial.print("Message sent: 0x"); Serial.println(msg, HEX);
+  //Serial.print("Message sent: 0x"); Serial.println(msg, HEX);
 }
 
 

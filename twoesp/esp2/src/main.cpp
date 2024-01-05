@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "mpu6500.h"
 #include "EspMQTTClient.h"
-#include "ArduinoJson.h"
+//#include "ArduinoJson.h"
 #include <HardwareSerial.h>
 #include "credentials.h"
 
@@ -39,10 +39,10 @@ bfs::Mpu6500 imu;
 HardwareSerial SerialInterconn(2);
 
 
-const size_t CAPACITY = JSON_ARRAY_SIZE(1024);
-StaticJsonDocument<CAPACITY> docX;
-StaticJsonDocument<CAPACITY> docY;
-StaticJsonDocument<CAPACITY> docZ;
+//const size_t CAPACITY = JSON_ARRAY_SIZE(1024);
+//StaticJsonDocument<CAPACITY> docX;
+//StaticJsonDocument<CAPACITY> docY;
+//StaticJsonDocument<CAPACITY> docZ;
 
 
 static constexpr float G_MPS2 = 9.80665f;
@@ -80,6 +80,7 @@ bool stateChange =       false;
 
 void collectData();
 void decodeAccelData();
+String arrayToString(float array[]);
 void sendJsonMessage();
 void checkSystemHealth();
 void checkSerialMessage();
@@ -111,6 +112,8 @@ void IRAM_ATTR onDataReady() {
 
 
 void setup() {
+  setCpuFrequencyMhz(240);
+
   Serial.begin(115200);
   while(!Serial) {}
 
@@ -119,9 +122,10 @@ void setup() {
 
   // configuring MQTT and WiFi clients
   //client.enableDebuggingMessages();
+  client.setKeepAlive(10);
   client.setMaxPacketSize(20000);
-  client.setMqttReconnectionAttemptDelay(1000);
-  client.setWifiReconnectionAttemptDelay(1000);
+  client.setMqttReconnectionAttemptDelay(10000);
+  client.setWifiReconnectionAttemptDelay(10000);
 
 
 
@@ -132,6 +136,7 @@ void setup() {
     Serial.println("Error initializing communication with IMU");
     //while(1) {}
   }
+  
 
   // setting sample rate divider (0 is 1000Hz)
   if (!imu.ConfigSrd(0)) {
@@ -201,6 +206,7 @@ void loop() {
       sendSerialMessage();
       stateChange = false;
     }
+    client.loop();
 
     enableDiagnostics = false;
     imu.EnableDrdyInt();
@@ -278,6 +284,22 @@ void decodeAccelData() {
 }
 
 
+String arrayToString(float arr[]) {
+  String encodedArray = "[";
+  String sep = ", ";
+  for(uint16_t i = 0; i < sampleSize; i++) {
+    encodedArray += String(arr[i]);
+    if (i < sampleSize-1) {
+      encodedArray += sep;
+    } else {
+      encodedArray += "]";
+    }
+  }
+
+  return encodedArray;
+}
+
+
 
 //----------------------------------------------
 // Encoding the vibration data and publishing it
@@ -301,31 +323,37 @@ void sendJsonMessage(){
     decodeAccelData();
 
     // convert the float array to Json
-    JsonArray arrayX = docX.to<JsonArray>();
-    JsonArray arrayY = docY.to<JsonArray>();
-    JsonArray arrayZ = docZ.to<JsonArray>();
+    //JsonArray arrayX = docX.to<JsonArray>();
+    //JsonArray arrayY = docY.to<JsonArray>();
+    //JsonArray arrayZ = docZ.to<JsonArray>();
 
-    for(uint16_t i = 0; i < sampleSize; i++) {
-      arrayX.add(vRealX[i]);
-      arrayY.add(vRealY[i]);
-      arrayZ.add(vRealZ[i]);
-    }
+    //for(uint16_t i = 0; i < sampleSize; i++) {
+    //  arrayX.add(vRealX[i]);
+    //  arrayY.add(vRealY[i]);
+    //  arrayZ.add(vRealZ[i]);
+    //}
 
     // serialization and publishing
-    String jsonStringX;
-    String jsonStringY;
-    String jsonStringZ;
-    serializeJson(docX, jsonStringX);
-    serializeJson(docY, jsonStringY);
-    serializeJson(docZ, jsonStringZ);
+    String jsonStringX = arrayToString(vRealX);
+    String jsonStringY = arrayToString(vRealY);
+    String jsonStringZ = arrayToString(vRealZ);
+    //serializeJson(docX, jsonStringX);
+    //serializeJson(docY, jsonStringY);
+    //serializeJson(docZ, jsonStringZ);
 
-    SerialInterconn.write(0xAA); // code for data publishing
+
 
     client.publish(VIBX_TOPIC, jsonStringX);
+    client.loop();
     client.publish(VIBY_TOPIC, jsonStringY);
+    client.loop();
     client.publish(VIBZ_TOPIC, jsonStringZ);
-    Serial.println("Accel data published to broker");
-
+    client.loop();
+    SerialInterconn.write(0xAA); // code for data publishing
+    //Serial.println("Accel data published to broker");
+    
+    
+    //enableCollection = false; // waiting for ESP1 to finish the data sending process
     enableDiagnostics = true;
   }
 }
@@ -377,27 +405,27 @@ void checkSystemHealth() {
 //------------------------------------------------------------
 void sendSerialMessage() {
   u_char msg = 0;
-  Serial.println("Sending system health: ");
+  //Serial.println("Sending system health: ");
   
   if(enableCollection && clientOk) {
     msg += 0x01;
-    Serial.print("ONLINE, ");
+    //Serial.print("ONLINE, ");
   }
   if(!clientOk) {
     msg += 0x02;
-    Serial.print("OFFLINE (ERR), ");
+    //Serial.print("OFFLINE (ERR), ");
   }
   if(!enableCollection) {
     msg += 0x04;
-    Serial.print("OFFLINE (MANUAL), ");
+    //Serial.print("OFFLINE (MANUAL), ");
   }
   if(!mpuOk) {
     msg += 0x08;
-    Serial.print("MPU DOWN, ");
+    //Serial.print("MPU DOWN, ");
   }
   if(mpuOk) {
     msg += 0x10;
-    Serial.print("MPU UP, ");
+    //Serial.print("MPU UP, ");
   }
 
   SerialInterconn.write(msg);

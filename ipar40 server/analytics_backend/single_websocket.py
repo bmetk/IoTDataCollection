@@ -21,10 +21,10 @@ router = websockets_routes.Router()
 host_name = "0.0.0.0" # linux: "0.0.0.0"
 combined_values = {"tempC":None, 
                     "rpm":None, 
-                    "cur":None, 
-                    "vibX_fft":None, "vibX_rms":None, "vibX_psd":None, 
-                    "vibY_fft":None, "vibY_rms":None, "vibY_psd":None, 
-                    "vibZ_fft":None, "vibZ_rms":None, "vibZ_psd":None}
+                    "amp":None, 
+                    "vibX":None, "vibX_fft":None, "vibX_rms":None, "vibX_psd":None, 
+                    "vibY":None, "vibY_fft":None, "vibY_rms":None, "vibY_psd":None, 
+                    "vibZ":None, "vibZ_fft":None, "vibZ_rms":None, "vibZ_psd":None}
 analytics_deque = deque([])
 data_ready = False
 data_cnt = 10
@@ -61,7 +61,7 @@ async def mqtt_client():
                         if message.topic.matches("bmetk/markk/lathe/+/+/rpm"):
                             combined_values['rpm'] = float(message.payload.decode("utf-8"))
                             received_topics['rpm'] = True
-                        if message.topic.matches("bmetk/markk/lathe/+/+/cur"):
+                        if message.topic.matches("bmetk/markk/lathe/+/+/amp"):
                             combined_values['cur'] = message.payload.decode("utf-8")
                             received_topics['cur'] = True
                         if message.topic.matches("bmetk/markk/lathe/+/+/vibX"):
@@ -84,6 +84,7 @@ async def mqtt_client():
                             received_topics['vibZ'] = True
 
                         if all(received_topics.values()):
+                            await write_measurements_to_db(combined_values)
                             data_ready = True
                             for key in received_topics.keys():
                                 received_topics[key] = False        
@@ -176,19 +177,26 @@ async def realtime_handler(websocket, path):
 
 
 async def process_mqtt_payload(payload : str, variable : str) -> dict:
-        result = dict.fromkeys([variable+"_fft", variable+"_rms", variable+"_psd"])
-    
-        vib_data = analytics.string_to_array(payload)
-        result[variable+"_fft"] = analytics.calculate_fft(vib_data)
-        result[variable+"_rms"] = analytics.calculate_rms(vib_data)
-        result[variable+"_psd"] = analytics.get_psd(vib_data)
+    result = dict.fromkeys([variable, variable+"_fft", variable+"_rms", variable+"_psd"])
 
-        await influx_write.writeToDB(cred.analytics_topic,
-                    ["vib_fft", "vib_rms", "vib_psd"],
-                    [result[variable+"_fft"], result[variable+"_rms"], result[variable+"_psd"]],
-                    [variable+"_fft", variable+"_rms", variable+"_psd"])
-        
-        return result
+    vib_data = analytics.string_to_array(payload)
+    result[variable] = vib_data
+    result[variable+"_fft"] = analytics.calculate_fft(vib_data)
+    result[variable+"_rms"] = analytics.calculate_rms(vib_data)
+    result[variable+"_psd"] = analytics.get_psd(vib_data)
+
+    """
+    await influx_write.writeAnalyticsToDB(cred.analytics_topic,
+                ["vib_fft", "vib_rms", "vib_psd"],
+                [result[variable+"_fft"], result[variable+"_rms"], result[variable+"_psd"]],
+                [variable+"_fft", variable+"_rms", variable+"_psd"])
+    """
+    return result
+
+
+async def write_measurements_to_db(value : list):
+    await influx_write.writeEverythingToDB(value)
+
 
 
 

@@ -156,6 +156,19 @@ void updateState(char* btnId) {
 
 
 
+//---------------------------------------
+// Creating a non-blocking delay function
+//---------------------------------------
+unsigned long prevMillis = 0;
+void nonBlockingDelay(int interval = 2000) {
+  //unsigned long currentMillis = millis();
+  prevMillis = millis();
+
+  while (millis() - prevMillis <= interval){};
+} 
+
+
+
 //----------------------------------------------
 //  Checking and setting measurement sync flag
 //----------------------------------------------
@@ -196,44 +209,44 @@ u_char prevMsg = 0;
 void processSerial(u_char msg) {
 
   if(msg != 0 && msg <= 0x1F) {
-    Serial.print("Message: 0x"); Serial.println(msg, HEX);
+    //Serial.print("Message: 0x"); Serial.println(msg, HEX);
 
     if(msg & 0x01) {
       homeContent[2][1] = espHealth[0];
       errorEnable[4] = 0;      
-      Serial.print(".  ONLINE");
+      //Serial.print(".  ONLINE");
     }
     if(msg & 0x02) {
       homeContent[2][1] = espHealth[1];
       errorEnable[4] = 1;
-      Serial.print(".  OFFLINE (ERR)");
-      Serial.println(errorEnable[4]);
+      //Serial.print(".  OFFLINE (ERR)");
+      //Serial.println(errorEnable[4]);
     }
     if(msg & 0x04) {
       homeContent[2][1] = espHealth[2];
       errorEnable[4] = 0;
-      Serial.print(".  OFFLINE (MANUAL)");
+      //Serial.print(".  OFFLINE (MANUAL)");
     }
     if(msg & 0x08) {
       homeContent[2][2] = espHealth[1];
       errorEnable[5] = 1;
-      Serial.print(".  MPU DOWN");
+      //Serial.print(".  MPU DOWN");
     }
     if(msg & 0x10) {
       homeContent[2][2] = espHealth[0];
       errorEnable[5] = 0;
-      Serial.print(".  MPU UP");
+      //Serial.print(".  MPU UP");
     }
-    Serial.println("");
-    for(int i=0; i<errorCount; i++) {
-      Serial.print(errorEnable[i]);
-      Serial.print(", ");
-    }
-    Serial.println("");
+    //Serial.println("");
+    //for(int i=0; i<errorCount; i++) {
+      //Serial.print(errorEnable[i]);
+      //Serial.print(", ");
+    //}
+    //Serial.println("");
     firstLevel();
   }
   else if(msg == 0xAA) {
-    Serial.println("Accel data ready");
+    //Serial.println("Accel data ready");
     sendMeasurements = true;
   }
 }
@@ -353,7 +366,7 @@ void errorTab(/*bool nextPage*/) {
       y = spacing * (offsetY+padding) + headerHeight;
 
       if(errorEnable[i] != 0) {
-        Serial.print("Error found at index "); Serial.println(i);
+        //Serial.print("Error found at index "); Serial.println(i);
         oled.setCursor(x, y);
         oled.print(errorContent[i]);
         spacing++;
@@ -366,7 +379,7 @@ void errorTab(/*bool nextPage*/) {
   }
   
   oled.display();
-  Serial.println("Error page updated");
+  //Serial.println("Error page updated");
 }
 
 
@@ -599,7 +612,7 @@ void thirdLevel(){
           oled.print("Toggling ESP1..");
           oled.display();
           toggleEsp1();
-          delay(2000);
+          nonBlockingDelay(2000);
           thirdLevel();
         }
         break;
@@ -613,7 +626,7 @@ void thirdLevel(){
           oled.print("Toggling ESP2..");
           oled.display();
           toggleEsp2();
-          delay(2000);
+          nonBlockingDelay(2000);
           thirdLevel();
         };
         break;
@@ -652,7 +665,7 @@ void thirdLevel(){
           sendSerialMessage(0x01);
           oled.print("Restarting ESP1..");
           oled.display();
-          delay(2000);
+          nonBlockingDelay(2000);
           ESP.restart();
         }
         break;
@@ -666,7 +679,7 @@ void thirdLevel(){
           oled.print("Restarting ESP2..");
           oled.display();
           sendSerialMessage(0x02); // code for restarting esp2
-          delay(2000);
+          nonBlockingDelay(2000);
           thirdLevel();
         }
         break;

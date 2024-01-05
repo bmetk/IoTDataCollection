@@ -3,18 +3,18 @@ import random
 import time
 import json
 
-broker_address = "152.66.34.82" #"152.66.34.82" #172.22.101.1"
-broker_port = 61111 #61111 #1883
+broker_address = "152.66.34.82" #"152.66.34.82" #"152.66.34.82" #172.22.101.1"
+broker_port = 32701 #32701 #61111 #1883
 topic1 = "bmetk/markk/lathe/temperature/mlx90614/tempC"
-topic2 = "bmetk/markk/lathe/speed/opto/rpm"
-topic3 = "bmetk/markk/lathe/current/diy/cur"
+topic2 = "bmetk/markk/lathe/speed/m0c70t3/rpm"
+topic3 = "bmetk/markk/lathe/current/ampmeter/amp"
 topic4 = "bmetk/markk/lathe/vibration/mpu9250/vibX"
 topic5 = "bmetk/markk/lathe/vibration/mpu9250/vibY"
 topic6 = "bmetk/markk/lathe/vibration/mpu9250/vibZ"
 
 
 client_id = f"python-mqtt-{random.randint(0, 1000)}"
-client = mqtt.Client(client_id="pathon-mqtt-001")
+client = mqtt.Client(client_id="python-mqtt-001")
 client.username_pw_set("bmetk", "iot23")
 client.connect(broker_address, broker_port)
 

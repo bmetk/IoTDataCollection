@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <cmath>
 #include <Adafruit_MLX90614.h> // temperature
 #include <connectivity.h>
 
@@ -23,12 +24,12 @@ unsigned long previousTime = 0;
 
 
 // measurement variables
-const int resistor = 150; // 100 Ohm resistor connected to the coil
+const double resistor = 150.0; // 150 Ohm resistor connected to the coil
 float rpm = 0;
 volatile int holes;
 
 // interrupt routine for rpm measurement
-void countHoles(){
+void IRAM_ATTR countHoles(){
     holes++;
 }
 
@@ -50,25 +51,27 @@ void setupSensors() {
     previousTime = millis();
 
     // Temperature sensor setup
-    if (!mlx.begin()) {
-        int retry = 0;
-
-        while(retry < 10) {
-            if (!mlx.begin()) {
-                retry++;
-                delay(100);
-            }
+    int retry = 0;
+    while (retry < 10) {
+        if (mlx.begin()) {
+            break;  // Break out of the loop if initialization succeeds
         }
+        retry++;
+        delay(200);
     }
 }
 
+
+void setRPMTime() {
+    previousTime = millis();
+}
 
 
 //----------------------------------------------------------
 // Function for checking the state of the temperature sensor
 //----------------------------------------------------------
 bool checkTempSensor() {
-    if(mlx.readAmbientTempC() != NAN) {
+    if(mlx.readAmbientTempC() > -10000) {
         return true;
     }
     else {
@@ -82,26 +85,62 @@ bool checkTempSensor() {
 //------------------------------------------------------------------
 // Measurement functions for rpm, current draw and motor temperature
 //------------------------------------------------------------------
-
+const int sampleSize = 100;
+double phase1Arr[sampleSize]; 
+double phase2Arr[sampleSize]; 
+double phase3Arr[sampleSize]; 
+int measurementCount = 0;
 // current
 double readVoltage(int pin){
-    return (analogRead(pin)/4096*3.3);
+    return ((double(analogRead(pin))*3.3)/4095.0);
 }
 
 double voltsToAmps(double voltage, double offset){
     voltage -= offset;
-    double amps = (voltage/resistor)*1000;
-    return amps;
+
+    if(voltage < 0) {
+        voltage *= -1;
+    }
+    
+    return (voltage/resistor)*1000.0;
 }
 
-void getCurrent(){
-    double offset = analogRead(OFFSET_PIN);
+/*void getCurrent(){
+    double offset = readVoltage(OFFSET_PIN);
     double phase_1 = voltsToAmps(readVoltage(PHASE1_PIN), offset);
     double phase_2 = voltsToAmps(readVoltage(PHASE2_PIN), offset);
     double phase_3 = voltsToAmps(readVoltage(PHASE3_PIN), offset);
 
     String current = String(phase_1) + ";" + String(phase_2) + ";" + String(phase_3);
     sendMqttMessage(AMP_TOPIC, current.c_str());
+}*/
+
+void getCurrent() {
+    if(measurementCount < sampleSize) {
+        double offset = readVoltage(OFFSET_PIN);
+        phase1Arr[measurementCount] = voltsToAmps(readVoltage(PHASE1_PIN), offset);
+        phase2Arr[measurementCount] = voltsToAmps(readVoltage(PHASE2_PIN), offset);
+        phase3Arr[measurementCount] = voltsToAmps(readVoltage(PHASE3_PIN), offset);
+        measurementCount++;
+    }
+}
+
+double getRMS(double arr[]) {
+    double squaredSum = 0.0f;
+    for (int i = 0; i < sampleSize; ++i) {
+        squaredSum += arr[i] * arr[i];
+    }
+
+    double meanSquared = squaredSum / static_cast<double>(sampleSize);
+    double rms = sqrt(meanSquared);
+
+    return rms;
+}
+
+void sendCurrent() {
+    String current = String(getRMS(phase1Arr)) + ";" + String(getRMS(phase2Arr)) + ";" + String(getRMS(phase3Arr));
+    sendMqttMessage(AMP_TOPIC, current.c_str());
+    measurementCount = 0;
 }
 
 
@@ -109,7 +148,7 @@ void getCurrent(){
 // RPM measurement
 void getRpm() {
     currentTime = millis();
-    rpm = (holes/HOLE_COUNT) * 60 / ((currentTime-previousTime)/1000.0);
+    rpm = (static_cast<float>(holes)/static_cast<float>(HOLE_COUNT)) * 60.0 / ((currentTime-previousTime)/1000.0);
     holes = 0;
     previousTime = currentTime;
     sendMqttMessage(RPM_TOPIC, String(rpm).c_str());
@@ -122,6 +161,9 @@ void getTempC() {
     double tempC = mlx.readObjectTempC();
     if(tempC != NAN) {
         sendMqttMessage(TEMP_TOPIC, String(tempC).c_str());
+    }
+    else {
+        sendMqttMessage(TEMP_TOPIC, String(-100).c_str());
     }
 }
 

@@ -1,6 +1,6 @@
-#define SSID        ""
-#define PWD         ""
-#define MQTT_ADDR   ""
-#define MQTT_USR    ""
-#define MQTT_PWD    ""
-#define MQTT_PORT   1883
+#define SSID        "GEPULETWIFI"
+#define PWD         "GepuletWifi987*"
+#define MQTT_USR    "bmetk"
+#define MQTT_PWD    "iot23"
+#define MQTT_ADDR   "152.66.34.82"
+#define MQTT_PORT   32701
