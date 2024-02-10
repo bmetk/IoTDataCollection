@@ -145,11 +145,9 @@ void updateState(char* btnId) {
       currentState[1]++;
     else
       currentState[2]++;
-    //printState();
   }
-  else if( strcmp(btnId, "enter")) {
+  else if(strcmp(btnId, "enter")) {
     currentState[lastIndex]++;
-    //printState();
   }
   firstLevel();
 }
@@ -495,10 +493,10 @@ void toggleEsp2() {
 
 
 
-//--------------------------------------------------------------------------------------------------
-// This is the entrypoint of the state machine. When pressing NEXT, it cycles through the main tabs.
+//------------------------------------------------------------------------------------------------------
+// This is the entrypoint of the state machine. When NEXT gets pressed, it cycles through the main tabs.
 // When pressing ENTER you can navigate to the available submenus.
-//--------------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------------
 void firstLevel() {
   switch (currentState[0]){
 

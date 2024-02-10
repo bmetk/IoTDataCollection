@@ -79,7 +79,7 @@ void sendSerialMessage(u_char msg) {
 
 
 u_char checkSerialMessage() {
-  if(SerialInterconn.available() >0) {
+  if(SerialInterconn.available() > 0) {
     u_char msg = SerialInterconn.read();
     return msg;
   }

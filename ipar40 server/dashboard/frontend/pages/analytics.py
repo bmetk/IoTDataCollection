@@ -9,10 +9,13 @@ import requests
 import ast
 
 
+
 dash.register_page(__name__, path="/analytics", order=1)
 
 layout = dbc.Container([
-    WebSocket(id="ws", url="ws://127.0.0.1:8765/realtime"),
+    WebSocket(id='ws-1', url="ws://172.22.101.1:8765/realtime"),
+    #WebSocket(id='ws-1', url="ws://127.0.0.1:8765/realtime"),
+    WebSocket(id='ws-2', url="ws://152.66.34.82:61114/realtime"),
 
     html.Br(),
     html.Br(),
@@ -63,7 +66,7 @@ layout = dbc.Container([
         dbc.Col([
             dcc.Markdown('''
                 Select the number of days (backwards) from which you want data. The records are combined into a single .csv file that can be 
-                processed or analysed separately from this web application. A basic Jupyter notebook for data pre-processing can be found [here]().
+                processed or analysed separately from this web application. A basic Jupyter notebook for data pre-processing can be found [here](https://github.com/bmetk/IoTDataCollection/blob/main/preprocessing/preprocessing.ipynb).
             '''),
         ]),
     ]),
@@ -92,63 +95,68 @@ layout = dbc.Container([
 # callback for websocket message handling
 @callback(
     Output('rpm-current-temp', 'figure'),
-    Input('ws', 'message'),
+    Input('ws-1', 'message'),
+    Input('ws-2', 'message'),
     #prevent_initial_call=True
 )
-def update_combined_data(msg):
-    if msg is None:
-        fig = go.Figure()
-    else:
-        df = pd.DataFrame()
-        df = pd.read_json(msg['data'])
-        
-        
-        rpm_data = df[df['variable'] == 'rpm']
-        cur_data = df[df['variable'] == 'cur']
-        tempC_data = df[df['variable'] == 'tempC']
-
-        # Access the values and timestamps for each variable
-        rpm_values = rpm_data['_value'].tolist()
-        rpm_timestamps = rpm_data['_time'].tolist()
-
-        cur_values = cur_data['_value'].tolist()
-        cur_sum = []
-        for point in cur_values:
-            ls = ast.literal_eval(point)
-            cur_sum.append((ls[0]+ls[1]+ls[2]))
-        cur_timestamps = cur_data['_time'].tolist()
-
-        tempC_values = tempC_data['_value'].tolist()
-        tempC_timestamps = tempC_data['_time'].tolist()
-
-        
-        fig = go.Figure()
-
-
-        fig.add_trace(go.Scatter(x=rpm_timestamps, y=rpm_values,
-                                mode = 'lines+markers',
-                                name = 'Rotation Speed [rpm]',
-                                yaxis='y1'))
-
-        fig.add_trace(go.Scatter(x=cur_timestamps, y=cur_sum,
-                                mode = 'lines+markers',
-                                name = 'Phase Cur. Sum [A]',
-                                yaxis='y2'))
-        
-        fig.add_trace(go.Scatter(x=tempC_timestamps, y=tempC_values,
-                                mode = 'lines+markers',
-                                name = 'Temperature [°C]',
-                                yaxis='y2'))
-    
+def update_combined_data(msg1, msg2):
+    df = pd.DataFrame()
+    fig = go.Figure()
     fig.update_layout(title="Combined data overview", title_x=0.5,
                     yaxis=dict(title='Speed [rpm]'),
                     yaxis2=dict(title='Phase Cur. Sum [A], Temp. [°C]', overlaying='y', side='right'),
-                    #yaxis3=dict(title='Temperature [C°]', overlaying='y', side='right', anchor='free', position=0.85),
                     xaxis=dict(title='Time [s]', domain=[0, 0.95]),
                     font_size=13,
                     title_font=dict(size=20),
                     template='plotly_white'
                     )
+    
+    if msg1 is not None:
+        df = pd.read_json(msg1['data'])
+    elif msg2 is not None:
+        df = pd.read_json(msg2['data'])
+    else:
+        return fig
+        
+    
+    rpm_data = df[df['variable'] == 'rpm']
+    cur_data = df[df['variable'] == 'cur']
+    tempC_data = df[df['variable'] == 'tempC']
+
+    # Access the values and timestamps for each variable
+    rpm_values = rpm_data['_value'].tolist()
+    rpm_timestamps = rpm_data['_time'].tolist()
+
+    cur_values = cur_data['_value'].tolist()
+    cur_sum = []
+    for point in cur_values:
+        ls = ast.literal_eval(point)
+        cur_sum.append((ls[0]+ls[1]+ls[2]))
+    cur_timestamps = cur_data['_time'].tolist()
+
+    tempC_values = tempC_data['_value'].tolist()
+    tempC_timestamps = tempC_data['_time'].tolist()
+
+    
+    
+
+
+    fig.add_trace(go.Scatter(x=rpm_timestamps, y=rpm_values,
+                            mode = 'lines+markers',
+                            name = 'Rotation Speed [rpm]',
+                            yaxis='y1'))
+
+    fig.add_trace(go.Scatter(x=cur_timestamps, y=cur_sum,
+                            mode = 'lines+markers',
+                            name = 'Phase Cur. Sum [A]',
+                            yaxis='y2'))
+    
+    fig.add_trace(go.Scatter(x=tempC_timestamps, y=tempC_values,
+                            mode = 'lines+markers',
+                            name = 'Temperature [°C]',
+                            yaxis='y2'))
+
+    
     #fig.update_xaxes(title="Time [s]")
     #fig.update_yaxes(title="Speed, Temperature, Current average")
     
@@ -159,10 +167,11 @@ def update_combined_data(msg):
 # callback for websocket message handling
 @callback(
     Output('vibration-rms', 'figure'),
-    Input('ws', 'message'),
+    Input('ws-1', 'message'),
+    Input('ws-2', 'message'),
     #prevent_initial_call=True
 )
-def update_rms_data(msg):
+def update_rms_data(msg1, msg2):
     fig=go.Figure()
     fig.update_layout(title='RMS value for each axes', title_x=0.5,
                     xaxis=dict(title='Time [s]'),
@@ -172,11 +181,13 @@ def update_rms_data(msg):
                     template='plotly_white'
                     )
 
-    if msg is None:
-        return fig
-    
     df = pd.DataFrame()
-    df = pd.read_json(msg['data'])
+    if msg1 is not None:
+        df = pd.read_json(msg1['data'])
+    elif msg2 is not None:
+        df = pd.read_json(msg2['data'])
+    else:
+        return fig
     #fig = go.Figure()
 
     x_rms_data = df[df['variable'] == 'vibX_rms']
@@ -214,22 +225,25 @@ def update_rms_data(msg):
 @callback(
     Output('vibration-psd', 'figure'),
     Input('vibration-rms', 'clickData'),
-    Input('ws', 'message'),
+    Input('ws-1', 'message'),
+    Input('ws-2', 'message'),
     #prevent_initial_call=True
 )
-def update_psd_data(clickData, msg):
+def update_psd_data(clickData, msg1, msg2):
     fig = go.Figure()
+    df = pd.DataFrame()
     
-    if clickData is None or msg is None:
+    if clickData is None or (msg1 is None and msg2 is None):
         fig.update_layout(title='Select RMS value for PSD',
                     title_x=0.5,
                     font_size=13,
                     title_font=dict(size=20),
                     template='plotly_white')
         return fig
-    
-    df = pd.DataFrame()
-    df = pd.read_json(msg['data'])
+    elif msg1 is not None:
+        df = pd.read_json(msg1['data'])
+    elif msg2 is not None:
+        df = pd.read_json(msg2['data'])
     
 
     selection = clickData['points'][0]

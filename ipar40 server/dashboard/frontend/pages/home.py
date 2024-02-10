@@ -15,7 +15,9 @@ dash.register_page(__name__, path="/")
 
 
 layout = dbc.Container([
-    WebSocket(id="ws", url="ws://127.0.0.1:8765/realtime"),
+    WebSocket(id='ws-1', url="ws://172.22.101.1:8765/realtime"),
+    #WebSocket(id='ws-1', url="ws://127.0.0.1:8765/realtime"),
+    WebSocket(id='ws-2', url="ws://152.66.34.82:61114/realtime"),
 
     html.Br(),
 
@@ -66,10 +68,11 @@ layout = dbc.Container([
 @callback(
         Output('tabs-content-vib-graph', 'children'),
         Input('tabs-vibration-graph', 'active_tab'),
-        Input('ws', 'message'),
+        Input('ws-1', 'message'),
+        Input('ws-2', 'message'),
         #prevent_initial_call=True
     )
-def get_spectrum_grph(tab, msg):
+def get_spectrum_grph(tab, msg1, msg2):
     var_name = "vibX_fft"
     axis=''
     x_axis = [0,1,2]
@@ -88,12 +91,18 @@ def get_spectrum_grph(tab, msg):
     
     df = pd.DataFrame()
     try:
-        df = pd.read_json(msg['data'], orient="list")
+        if msg1 is not None:
+            df = pd.read_json(msg1['data'], orient="list")
+        elif msg2 is not None:
+            df = pd.read_json(msg2['data'], orient="list")
+        else:
+            pass
         data = ast.literal_eval(df.loc[df['variable'] == var_name, '_value'].values[0])
         x_axis=list(i for i in range(len(data)))
         y_axis=data
     except:
         pass
+
 
     fig = go.Figure()
     fig.add_trace(go.Bar(
@@ -126,17 +135,26 @@ def get_spectrum_grph(tab, msg):
         Output("rpm-indicator", "figure"),
         Output("temp-indicator", "figure"),
         Output("current-indicator", "figure"),
-        Input("ws", "message"),
+        Input("ws-1", "message"),
+        Input("ws-2", "message"),
         #prevent_initial_call=True
 )
-def update_graphs(msg):
+def update_graphs(msg1, msg2):
     df=pd.DataFrame()
 
-    if msg is not None:
-        df = pd.read_json(msg['data'], orient="list")
+    try:
+        if msg1 is not None:
+            df = pd.read_json(msg1['data'], orient="list")
+        elif msg2 is not None:
+            df = pd.read_json(msg2['data'], orient="list")
+        else:
+            pass
         global current_val, previous_val
         previous_val=current_val
         current_val=[df.loc[df['variable'] == "rpm",'_value'].values[0], df.loc[df['variable'] == "tempC",'_value'].values[0]]
+    except:
+        pass
+
 
 
     fig_rpm = go.Figure()
@@ -185,7 +203,7 @@ def update_graphs(msg):
 
     fig_current.add_trace(go.Bar(
         x=[1, 2, 3], 
-        y=y if msg is not None else [0,0,0],
+        y=y if msg1 is not None or msg2 is not None else [0,0,0],
         marker_color='darkblue'
     ))
 

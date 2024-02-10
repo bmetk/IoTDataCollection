@@ -65,6 +65,7 @@ const unsigned int measurementInterval = 1300;
 //-----------------------
 bool prevClientCon = false, prevTemp = false; 
 bool clientCon = false, temp = false; 
+
 void checkEsp1Health() {
   clientCon = checkClientCon();
   temp = checkTempSensor();
@@ -121,17 +122,15 @@ void Task1code(void * pvParameters){
     if(nextPressed) {
       updateState("next");
       nextPressed = false;
-      //Serial.println("next");
     }
     else if(enterPressed) {
       updateState("enter");
       enterPressed = false;
-      //Serial.println("enter");
     }
     
 
     
-    vTaskDelay(10);
+    vTaskDelay(12);
   }
 }
 
@@ -151,11 +150,8 @@ void Task2code(void * pvParameters){
   setRPMTime();
   
   for(;;){
-    //clientLoop();
+    clientLoop();
     processSerial(checkSerialMessage());
-
-    // periodical reading of the current values
-    getCurrent();
 
     if(checkSendMeasurements()) { // check if acceleration data is ready
       resetSendMeasurements(); // reseting the flag
@@ -163,16 +159,14 @@ void Task2code(void * pvParameters){
       getRpm();
       getTempC();
       //sendSerialMessage(0x01);
-      //Serial.println("task2 done");
-      //previousMillis = millis();
+
     }
     // check if acceleration data is ready
-    else if(millis() - previousMillis > measurementInterval && isCollectionEnabled() && checkEsp2State() == "OFF") { 
-      resetSendMeasurements();
+    if(millis() - previousMillis > measurementInterval && isCollectionEnabled() && checkEsp2State() == "OFF") { 
       sendCurrent();
       getRpm();
       getTempC();
-      //Serial.println("task2 done");
+
       previousMillis = millis();
     }
     
@@ -217,9 +211,9 @@ void setup() {
                     "Task1",     /* name of task. */
                     10000,       /* Stack size of task */
                     NULL,        /* parameter of the task */
-                    2,           /* priority of the task */
+                    1,           /* priority of the task */
                     &Task1,      /* Task handle to keep track of created task */
-                    1);          /* pin task to core 0 */                  
+                    0);          /* pin task to core 0 */                  
   delay(500); 
 
   //create a task that will be executed in the Task2code() function, with priority 1 and executed on core 1
@@ -230,7 +224,7 @@ void setup() {
                     NULL,        /* parameter of the task */
                     1,           /* priority of the task */
                     &Task2,      /* Task handle to keep track of created task */
-                    0);          /* pin task to core 1 */
+                    1);          /* pin task to core 1 */
   delay(500);
 }
 

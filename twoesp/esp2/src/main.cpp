@@ -46,7 +46,7 @@ HardwareSerial SerialInterconn(2);
 
 
 static constexpr float G_MPS2 = 9.80665f;
-float accel_scale;
+//float accel_scale;
 const int sampleSize =          1024;
 bool DATA_READY =               false;
 bool READ = false;
@@ -55,9 +55,9 @@ int intCounter =                0;
 int idx =                       0;
 
 
-int16_t rawX[sampleSize];
-int16_t rawY[sampleSize];
-int16_t rawZ[sampleSize];
+//int16_t rawX[sampleSize];
+//int16_t rawY[sampleSize];
+//int16_t rawZ[sampleSize];
 float vRealX[sampleSize];
 float vRealY[sampleSize];
 float vRealZ[sampleSize];
@@ -117,6 +117,9 @@ void setup() {
   Serial.begin(115200);
   while(!Serial) {}
 
+  //pinMode(21, INPUT_PULLUP);
+  //pinMode(22, INPUT_PULLUP);
+
   Wire.begin();
   Wire.setClock(400000);
 
@@ -132,27 +135,29 @@ void setup() {
   // accelerometer configuration
   imu.Config(&Wire, bfs::Mpu6500::I2C_ADDR_PRIM); // default address is 0x68
   
-  if (!imu.Begin()) {
+  while (!imu.Begin()) {
     Serial.println("Error initializing communication with IMU");
+    delay(200);
     //while(1) {}
   }
-  
 
   // setting sample rate divider (0 is 1000Hz)
-  if (!imu.ConfigSrd(0)) {
+  while (!imu.ConfigSrd(0)) {
     Serial.println("Error configured SRD");
+    delay(200);
     //while(1) {}
+  }
+
+  // enableing data ready interrupt for reading
+  while (!imu.EnableDrdyInt()) {
+    Serial.println("Error enableing data ready interrupt");
+    delay(200);
   }
 
   // setting acceleration range to 4g
   imu.ConfigAccelRange(bfs::Mpu6500::ACCEL_RANGE_4G);
 
-  // enableing data ready interrupt for reading
-  if (!imu.EnableDrdyInt()) {
-    Serial.println("Error enableing data ready interrupt");
-  }
-
-  accel_scale = imu.accel_range()/32767.5f;
+  //accel_scale = imu.accel_range()/32767.5f;
 
   // interrupt
   pinMode(DRDY_PIN, INPUT_PULLUP);
@@ -194,7 +199,7 @@ void loop() {
   if(enableCollection) {
     sendJsonMessage();
   }
-  else if (!enableCollection) {
+  else {
     enableDiagnostics = true;
   }
 
@@ -236,7 +241,8 @@ void onConnectionEstablished() {
 // MPU6500 data collection
 //-------------------------------------------------
 void collectData() {
-  Wire.beginTransmission(bfs::Mpu6500::I2C_ADDR_PRIM);
+  
+  /*Wire.beginTransmission(bfs::Mpu6500::I2C_ADDR_PRIM);
   Wire.write(0x3B); // start with register 0x3B (ACCEL_XOUT_H)
   int transmissionResult = Wire.endTransmission(false);
 
@@ -256,11 +262,20 @@ void collectData() {
 
   rawX[idx] = static_cast<int16_t>(Wire.read() << 8 | Wire.read());
   rawY[idx] = static_cast<int16_t>(Wire.read() << 8 | Wire.read());
-  rawZ[idx] = static_cast<int16_t>(Wire.read() << 8 | Wire.read());
-  
+  rawZ[idx] = static_cast<int16_t>(Wire.read() << 8 | Wire.read());*/
 
-  idx++;
-  READ = false;
+  if(imu.Read()) {
+    vRealX[idx] = imu.accel_x_mps2();
+    vRealY[idx] = imu.accel_y_mps2();
+    vRealZ[idx] = (imu.accel_z_mps2()+G_MPS2);
+    
+    idx++;
+    READ = false;
+  } 
+  else {
+    enableDiagnostics = true;
+    return;
+  }
 
 
   if(idx >= sampleSize){
@@ -274,14 +289,14 @@ void collectData() {
 //-----------------------------------------------------
 // Converting the integer values to real vibration data
 //-----------------------------------------------------
-void decodeAccelData() {
+/*void decodeAccelData() {
   for(uint16_t i=0; i<sampleSize; i++) {
     vRealX[i] = static_cast<float>(rawX[i]*accel_scale*G_MPS2);
     vRealY[i] = static_cast<float>(rawY[i]*accel_scale*G_MPS2);
     vRealZ[i] = static_cast<float>(rawZ[i]*accel_scale*G_MPS2);
     
   }
-}
+}*/
 
 
 String arrayToString(float arr[]) {
@@ -320,7 +335,7 @@ void sendJsonMessage(){
     idx = 0;
     
     // decode all collected data
-    decodeAccelData();
+    // decodeAccelData();
 
     // convert the float array to Json
     //JsonArray arrayX = docX.to<JsonArray>();
@@ -343,13 +358,13 @@ void sendJsonMessage(){
 
 
 
-    client.publish(VIBX_TOPIC, jsonStringX);
-    client.loop();
-    client.publish(VIBY_TOPIC, jsonStringY);
-    client.loop();
-    client.publish(VIBZ_TOPIC, jsonStringZ);
-    client.loop();
     SerialInterconn.write(0xAA); // code for data publishing
+    client.publish(VIBX_TOPIC, jsonStringX);
+    //client.loop();
+    client.publish(VIBY_TOPIC, jsonStringY);
+    //client.loop();
+    client.publish(VIBZ_TOPIC, jsonStringZ);
+    //client.loop();
     //Serial.println("Accel data published to broker");
     
     

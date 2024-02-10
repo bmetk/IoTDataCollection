@@ -5,7 +5,6 @@ from dash_extensions import WebSocket
 import base64
 
 
-
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY], use_pages=True)
 logo = "images/logo.png"
 logo_base64 = base64.b64encode(open(logo, 'rb').read()).decode('ascii')
@@ -50,20 +49,23 @@ navbar = dbc.Navbar(
 
 app.layout = dbc.Container(html.Div([
     navbar, 
-    WebSocket(id='ws-toggler', url='ws://127.0.0.1:8765/realtime'),
+    WebSocket(id='ws-toggler-1', url="ws://172.22.101.1:8765/realtime"),
+    #WebSocket(id='ws-toggler-1', url="ws://127.0.0.1:8765/realtime"),
+    WebSocket(id='ws-toggler-2', url="ws://152.66.34.82:61114/realtime"),
     dash.page_container,
 ]), fluid=True)
 
 @app.callback(
-    Output('ws-toggler', 'send'),
+    Output('ws-toggler-1', 'send'),
+    Output('ws-toggler-2', 'send'),
     Input('toggle-generated-data', 'value'),
     #prevent_initial_call=True
 )
 def toggle_data_source(value):
     if value:
-        return 'generated'
+        return 'generated', 'generated'
     else:
-        return 'realtime'
+        return 'realtime', 'realtime'
 
 
 if __name__ == "__main__":
